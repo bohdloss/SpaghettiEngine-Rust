@@ -12,4 +12,12 @@ impl DispatcherError {
             message
         }
     }
+
+    pub fn get_error(&self) -> Option<&'static dyn Error> {
+        self.error.clone()
+    }
+
+    pub fn get_message(&self) -> Option<String> {
+        self.message.clone()
+    }
 }

@@ -1,40 +1,33 @@
-use crate::dispatcher::{DispatcherError, Executable, FunctionDispatcher};
-use std::thread;
+use crate::dispatcher::{FunctionDispatcher};
 
 mod core;
 mod demo;
 mod dispatcher;
 mod utils;
 
-struct TestFunction {
-}
-
-impl Executable for TestFunction {
-    fn execute(&self) -> Result<Option<u64>, DispatcherError> {
-        println!("hello from test FUNCTION!");
-        Ok(Some(89))
-    }
-}
-
-static FUNCTION: TestFunction = TestFunction{};
-
 fn main() {
-    thread::spawn(|| {});
     // Init dispatcher
     let mut dispatcher = FunctionDispatcher::from_current_thread();
 
     // Queue FUNCTION
-    match dispatcher.queue_quick(&FUNCTION) {
+    match dispatcher.queue_quick(|| {
+        println!("HAIIII :3");
+        Ok(Some(4815162342))
+    }) {
         Ok(value) => {
-            if value.is_some() {
-                let vall = value.unwrap();
-                println!("{vall}");
+            if let Some(val) = value {
+                println!("{val}");
             } else {
                 println!("No return value")
             }
         },
-        Err(_) => {
-            println!("Dispatcher error");
+        Err(error) => {
+            let msg = error.get_message();
+            if let Some(str) = msg {
+                println!("Dispatcher error: {str}");
+            } else {
+                println!("Dispatcher error");
+            }
         }
     }
 }

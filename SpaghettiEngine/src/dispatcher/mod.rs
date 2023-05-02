@@ -7,5 +7,6 @@ mod function_dispatcher;
 
 pub use dispatcher_error::DispatcherError;
 pub use executable::Executable;
+pub use executable::LambdaExecutable;
 pub use function_dispatcher::FunctionDispatcher;
 pub use function_dispatcher::FunctionHandle;
