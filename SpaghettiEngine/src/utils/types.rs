@@ -1,5 +1,5 @@
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -31,3 +31,13 @@ pub type RwLockVec<T> = RwLock<Vec<T>>;
 pub type MutexVec<T> = Mutex<Vec<T>>;
 pub type ArcRwLockVec<T> = ArcRwLock<Vec<T>>;
 pub type ArcMutexVec<T> = ArcMutex<Vec<T>>;
+
+pub type CellVecDeque<T> = Cell<VecDeque<T>>;
+pub type RefCellVecDeque<T> = RefCell<VecDeque<T>>;
+pub type RcCellVecDeque<T> = RcCell<VecDeque<T>>;
+pub type RcRefCellVecDeque<T> = RcRefCell<VecDeque<T>>;
+
+pub type RwLockVecDeque<T> = RwLock<VecDeque<T>>;
+pub type MutexVecDeque<T> = Mutex<VecDeque<T>>;
+pub type ArcRwLockVecDeque<T> = ArcRwLock<VecDeque<T>>;
+pub type ArcMutexVecDeque<T> = ArcMutex<VecDeque<T>>;

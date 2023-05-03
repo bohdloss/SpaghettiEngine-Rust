@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-mod object_pool;
+pub mod object_pool;
 #[allow(dead_code)]
 pub mod types;
 

@@ -1,3 +1,3 @@
-mod thread_component;
+pub mod thread_component;
 
 pub use thread_component::ThreadComponent;

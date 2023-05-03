@@ -10,8 +10,7 @@ use crate::utils::types::*;
 pub struct FunctionDispatcher {
 	handle_pool: ObjectPool<FunctionHandle, 256>,
     call_queue: Mutex<VecDeque<ArcRwLock<FunctionHandle>>>,
-    thread_id: ThreadId,
-	counter: u64
+    thread_id: ThreadId
 }
 
 type FuncType = fn() -> Result<Option<u64>, DispatcherError>;
@@ -40,8 +39,7 @@ impl FunctionDispatcher {
         FunctionDispatcher {
 	        handle_pool: ObjectPool::new(|| FunctionHandle::new()),
             call_queue: Mutex::new(VecDeque::new()),
-            thread_id,
-	        counter: 0
+            thread_id
         }
     }
 
@@ -59,11 +57,6 @@ impl FunctionDispatcher {
         // ALLOCATE FROM OBJECT POOL
 	    let pointer = self.handle_pool.borrow();
 	    if let Ok(mut handle) = pointer.write() {
-		    handle.id = {
-			    let temp = self.counter;
-			    self.counter += 1;
-			    temp
-		    };
 		    handle.function = Some(function);
 		    handle.return_value = None;
 		    handle.finished = false;
@@ -144,7 +137,6 @@ impl FunctionDispatcher {
 }
 
 pub struct FunctionHandle {
-	id: u64,
     function: Option<FuncType>,
     return_value: Option<Result<Option<u64>, DispatcherError>>,
     finished: bool,
@@ -153,7 +145,6 @@ pub struct FunctionHandle {
 impl FunctionHandle {
     fn new() -> FunctionHandle {
         FunctionHandle {
-	        id: 0,
             function: None,
             return_value: None,
             finished: true,

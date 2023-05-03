@@ -9,3 +9,6 @@ edition = "2021"
 rand = "0.8.5"
 error-stack = "0.3.1"
 array-init = "2.1.0"
+glfw = "0.51.0" # Window management (Optional)
+glium = "0.32.1" # OpenGL
+alto = "3.0.4" # OpenAL

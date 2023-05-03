@@ -1,11 +1,11 @@
 use crate::dispatcher::{FunctionDispatcher};
 
-mod core;
-mod demo;
-mod dispatcher;
-mod utils;
+pub mod core;
+pub mod demo;
+pub mod dispatcher;
+pub mod utils;
 
-fn main() {
+pub fn main() {
     // Init dispatcher
     let mut dispatcher = FunctionDispatcher::from_current_thread();
 
