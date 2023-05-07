@@ -4,13 +4,17 @@ pub mod core;
 pub mod demo;
 pub mod dispatcher;
 pub mod utils;
+pub mod settings;
+pub mod events;
+pub mod networking;
+pub mod allocation;
 
 pub fn main() {
     // Init dispatcher
-    let mut dispatcher = FunctionDispatcher::from_current_thread();
+    let dispatcher = FunctionDispatcher::from_current_thread();
 
     // Queue FUNCTION
-    match dispatcher.queue_quick(|| {
+    match dispatcher.queue_lambda_quick(|| {
         println!("HAIIII :3");
         Ok(Some(4815162342))
     }) {

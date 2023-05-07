@@ -1,15 +1,16 @@
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use array_init::array_init;
-use crate::utils::types::*;
 
-struct ObjectEntry<T> {
-	object: ArcRwLock<T>,
+pub const DEFAULT_POOL_SIZE: usize = 32;
+
+struct ArcObjectEntry<T> {
+	object: Arc<T>,
 	in_use: bool
 }
 
 pub struct ObjectPool<T, const POOL_SIZE: usize> {
 	mutex: Mutex<()>,
-	objects: [ObjectEntry<T>; POOL_SIZE],
+	objects: [ArcObjectEntry<T>; POOL_SIZE],
 	constructor: fn() -> T,
 	get_pointer: usize,
 	drop_pointer: usize
@@ -27,11 +28,11 @@ impl<T, const POOL_SIZE: usize> ObjectPool<T, POOL_SIZE> {
 	///
 	/// * The newly constructed pool
 	pub fn new(constructor: fn() -> T) -> Self {
-		ObjectPool {
+		Self {
 			mutex: Mutex::new(()),
 			objects: array_init(|_| {
-				ObjectEntry {
-					object: Arc::new(RwLock::new(constructor())),
+				ArcObjectEntry {
+					object: Arc::new(constructor()),
 					in_use: false
 				}
 			}),
@@ -45,7 +46,7 @@ impl<T, const POOL_SIZE: usize> ObjectPool<T, POOL_SIZE> {
 	/// objects are in use, this function will allocate a new object and return it.
 	/// The caller can just pay back the pointer to the pool and nothing will happen, without
 	/// having to check if the pointer was newly allocated or not
-	pub fn borrow(&mut self) -> ArcRwLock<T> {
+	pub fn borrow(&mut self) -> Arc<T> {
 		let mut cycles: usize = 0;
 		loop {
 			let entry = &mut self.objects[self.get_pointer];
@@ -55,21 +56,17 @@ impl<T, const POOL_SIZE: usize> ObjectPool<T, POOL_SIZE> {
 				self.get_pointer += 1;
 			}
 
-			if entry.in_use {
-				if let Ok(_) = self.mutex.lock() {
-					if entry.in_use {
-						entry.in_use = true;
-						return entry.object.clone();
-					}
-				} else {
-					panic!();
+			if !entry.in_use {
+				let _guard = self.mutex.lock().unwrap();
+				if !entry.in_use {
+					entry.in_use = true;
+					return entry.object.clone();
 				}
 			}
 
 			cycles += 1;
 			if cycles >= POOL_SIZE * 2 {
-				let constructor = self.constructor;
-				return Arc::new(RwLock::new(constructor()));
+				return Arc::new((self.constructor)());
 			}
 		}
 	}
@@ -80,7 +77,7 @@ impl<T, const POOL_SIZE: usize> ObjectPool<T, POOL_SIZE> {
 	///  # Arguments
 	///
 	/// * `object` - The object to pay back
-	pub fn pay(&mut self, object: ArcRwLock<T>) {
+	pub fn pay(&mut self, object: Arc<T>) {
 		let mut cycles: usize = 0;
 		loop {
 			let entry = &mut self.objects[self.drop_pointer];
