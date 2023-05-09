@@ -1,38 +1,49 @@
 use std::sync::RwLock;
-use once_cell::sync::Lazy;
 use rand::Rng;
 use crate::utils::types::*;
 
-static mut IDS: Lazy<RwLockVec<IdType>> = Lazy::new(|| RwLock::new(Vec::new()));
+static OBJECT_IDS: RwLockVec<ObjectId> = RwLock::new(Vec::new());
 
-pub fn generate_id() -> IdType {
-	let mut id: IdType;
+pub fn generate_object_id() -> ObjectId {
+	let mut id: ObjectId;
 	loop {
 		id = rand::thread_rng().gen();
-		if let Ok(list) = unsafe{&IDS}.read() {
-			if !list.contains(&id) {
-				break;
-			}
-		} else {
-			panic!();
+		if !OBJECT_IDS.read().unwrap().contains(&id) {
+			break;
 		}
 	}
 
-	if let Ok(mut list) = unsafe{&IDS}.write() {
-		list.push(id);
-	} else {
-		panic!();
-	}
+	OBJECT_IDS.write().unwrap().push(id);
 	id
 }
 
-pub fn free_id(id: IdType) {
-	if let Ok(mut list) = unsafe{&IDS}.write() {
-		let index = list.iter().position(|&x| x == id);
-		if let Some(idx) = index {
-			list.remove(idx);
+pub fn free_object_id(id: ObjectId) {
+	let mut list = OBJECT_IDS.write().unwrap();
+	let index = list.iter().position(|&x| x == id);
+	if let Some(idx) = index {
+		list.remove(idx);
+	}
+}
+
+static GENERIC_IDS: RwLockVec<GenericId> = RwLock::new(Vec::new());
+
+pub fn generate_generic_id() -> GenericId {
+	let mut id: GenericId;
+	loop {
+		id = rand::thread_rng().gen();
+		if !GENERIC_IDS.read().unwrap().contains(&id) {
+			break;
 		}
-	} else {
-		panic!();
+	}
+
+	GENERIC_IDS.write().unwrap().push(id);
+	id
+}
+
+pub fn free_generic_id(id: GenericId) {
+	let mut list = GENERIC_IDS.write().unwrap();
+	let index = list.iter().position(|&x| x == id);
+	if let Some(idx) = index {
+		list.remove(idx);
 	}
 }

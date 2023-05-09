@@ -1,16 +1,13 @@
 use crate::dispatcher::{DispatcherError};
 use std::collections::vec_deque::VecDeque;
-use std::sync::{Arc, Mutex, RwLock, Weak};
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::thread::ThreadId;
 use std::time::Duration;
-use crate::allocation::{object_pool, ObjectPool};
 use crate::dispatcher::execute::{Execute};
 use crate::utils::types::*;
 
 pub struct FunctionDispatcher {
-	handle_pool: Mutex<ObjectPool<RwLock<FunctionHandle>, { object_pool::DEFAULT_POOL_SIZE }>>,
-    lambda_pool: ArcMutex<ObjectPool<RwLock<LambdaExecute>, { object_pool::DEFAULT_POOL_SIZE }>>,
     call_queue: RwLockVecDeque<ArcRwLock<FunctionHandle>>,
     thread_id: ThreadId
 }
@@ -22,7 +19,7 @@ impl FunctionDispatcher {
 	/// # Returns
 	///
 	/// * The newly constructed dispatcher
-	pub fn from_current_thread() -> FunctionDispatcher {
+	pub fn from_current_thread() -> Self {
 		Self::from_thread(thread::current().id())
 	}
 
@@ -35,100 +32,62 @@ impl FunctionDispatcher {
 	/// # Returns
 	///
 	/// * The newly constructed dispatcher
-    pub fn from_thread(thread_id: ThreadId) -> FunctionDispatcher {
-        FunctionDispatcher {
-	        handle_pool: Mutex::new(ObjectPool::new(|| RwLock::new(FunctionHandle::new()))),
-	        lambda_pool: Arc::new(Mutex::new(ObjectPool::new(|| RwLock::new(LambdaExecute::new())))),
+    pub fn from_thread(thread_id: ThreadId) -> Self {
+        Self {
             call_queue: RwLock::new(VecDeque::new()),
             thread_id
         }
     }
 
 	pub fn queue_lambda(&self, function: DispatcherFunction) -> ArcRwLock<FunctionHandle> {
-		let object = self.lambda_pool.lock().unwrap().borrow();
-		{
-			let mut lambda = object.write().unwrap();
-			lambda.function = function;
-			lambda.self_ptr = Arc::downgrade(&object);
-			lambda.pool = Arc::downgrade(&self.lambda_pool);
-		}
-		self.queue(object)
+		self.queue(Box::new(LambdaExecute::new(function)))
 	}
 
 	/// Queues a function for the owning thread of this dispatcher to execute
 	///
 	/// # Arguments
-	///
 	/// * `function` - The function to queue
 	///
 	/// # Returns
-	///
 	/// * A handle to track the state of the request and obtain a return value.
-	/// The handle must be freed with `free_handle()` once it is not needed anymore
-    pub fn queue(&self, function: ArcRwLock<dyn Execute>) -> ArcRwLock<FunctionHandle> {
-        // ALLOCATE FROM OBJECT POOL
-	    let pointer = self.handle_pool.lock().unwrap().borrow();
-		{
-			let mut handle = pointer.write().unwrap();
-			handle.function = Some(function);
-			handle.return_value = None;
-			handle.finished = false;
-		}
+    pub fn queue(&self, function: Box<dyn Execute>) -> ArcRwLock<FunctionHandle> {
+		let handle = Arc::new(RwLock::new(FunctionHandle::new(function)));
 
         // Is the current thread the one we are working for?
         if thread::current().id().eq(&self.thread_id) {
 	        {
-		        let mut value = pointer.write().unwrap();
+		        let mut value = handle.write().unwrap();
 		        value.process();
 	        }
         } else {
 	        {
 		        let mut queue = self.call_queue.write().unwrap();
-		        queue.push_back(pointer.clone());
+		        queue.push_back(handle.clone());
 	        }
         }
 
-	    pointer
+		handle
     }
 
 	pub fn queue_lambda_quick(&self, function: DispatcherFunction) -> DispatcherReturn {
-		let object = self.lambda_pool.lock().unwrap().borrow();
-		{
-			let mut lambda = object.write().unwrap();
-			lambda.function = function;
-			lambda.self_ptr = Arc::downgrade(&object);
-			lambda.pool = Arc::downgrade(&self.lambda_pool.clone());
-		}
-		self.queue_quick(object)
+		self.queue_quick(Box::new(LambdaExecute::new(function)))
 	}
 
 	/// Queues the given function, waits for the thread to execute it, then returns the output
 	///
 	/// # Arguments
-	///
 	/// * `function` - The function to queue
 	///
 	/// # Returns
-	///
 	/// * The return value of the function
-	pub fn queue_quick(&self, function: ArcRwLock<dyn Execute>) -> DispatcherReturn {
+	pub fn queue_quick(&self, function: Box<dyn Execute>) -> DispatcherReturn {
 		let handle = self.queue(function);
 		let result;
 		{
 			let mut value = handle.write().unwrap();
 			result = value.get_return_value();
 		}
-		self.free_handle(handle);
 		result
-	}
-
-	/// Frees a handle returned by `queue()`
-	///
-	/// # Arguments
-	///
-	/// * `handle` - The handle
-	pub fn free_handle(&self, handle: ArcRwLock<FunctionHandle>) {
-		self.handle_pool.lock().unwrap().pay(handle);
 	}
 
 	/// Computes all queued functions. Must only be called on the owning thread
@@ -144,17 +103,17 @@ impl FunctionDispatcher {
 }
 
 pub struct FunctionHandle {
-    function: Option<ArcRwLock<dyn Execute>>,
+    function: Box<dyn Execute>,
     return_value: Option<Result<Option<u64>, DispatcherError>>,
     finished: bool,
 }
 
 impl FunctionHandle {
-    fn new() -> FunctionHandle {
+    fn new(function: Box<dyn Execute>) -> FunctionHandle {
         FunctionHandle {
-            function: None,
+            function,
             return_value: None,
-            finished: true,
+            finished: false,
         }
     }
 
@@ -220,27 +179,21 @@ impl FunctionHandle {
 
 	/// Processes the function by running it and storing its return value
 	pub fn process(&mut self) {
-		if let Some(function) = &self.function {
-			self.return_value = Some(function.write().unwrap().execute());
-			self.finished = true;
-		}
+		self.return_value = Some(self.function.execute());
+		self.finished = true;
 	}
 
 }
 
 struct LambdaExecute {
-	function: DispatcherFunction,
-	pool: WeakMutex<ObjectPool<RwLock<LambdaExecute>, { object_pool::DEFAULT_POOL_SIZE }>>,
-	self_ptr: WeakRwLock<LambdaExecute>
+	function: DispatcherFunction
 }
 
 impl LambdaExecute {
 
-	pub fn new() -> Self {
+	pub fn new(function: DispatcherFunction) -> Self {
 		Self {
-			function: || Ok(None),
-			pool: Weak::new(),
-			self_ptr: Weak::new()
+			function
 		}
 	}
 
@@ -248,15 +201,7 @@ impl LambdaExecute {
 
 impl Execute for LambdaExecute {
 	fn execute(&mut self) -> DispatcherReturn {
-		let result = (self.function)();
-
-		// Make this object reusable in the pool
-		if let Some(pool) = self.pool.upgrade() {
-			if let Some(self_ptr) = self.self_ptr.upgrade() {
-				pool.lock().unwrap().pay(self_ptr);
-			}
-		}
-		result
+		(self.function)()
 	}
 
 }
