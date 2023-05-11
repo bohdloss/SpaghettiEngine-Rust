@@ -6,7 +6,7 @@ extern crate quote;
 use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
 
-#[proc_macro_derive(GameEvent)]
+#[proc_macro_derive(GameEvent, attributes(event_data))]
 pub fn game_event(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 	let name = input.ident;
@@ -18,6 +18,9 @@ pub fn game_event(input: TokenStream) -> TokenStream {
 	        fn get_event_data_mut(&mut self) -> &mut EventData {
 		        &mut self.event
 	        }
+			fn get_event_type(&self) -> u64 {
+				0
+			}
         }
     };
     TokenStream::from(expanded)

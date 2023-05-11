@@ -58,6 +58,7 @@ pub trait GameEvent : AsAny {
 	}
 	fn get_event_data(&self) -> &EventData;
 	fn get_event_data_mut(&mut self) -> &mut EventData;
+	fn get_event_type(&self) -> GenericId;
 }
 
 impl<T: GameEvent> Replicate for T {
@@ -82,21 +83,26 @@ impl<T: GameEvent> Replicate for T {
 	}
 }
 
-static EVENT_TABLE: RwLockVec<fn() -> Box<dyn GameEvent>> = RwLock::new(Vec::new());
+pub type EventConstructor = fn() -> Box<dyn GameEvent>;
+
+static EVENT_TABLE: RwLockVec<EventConstructor> = RwLock::new(Vec::new());
 static TYPE_ASSOCIATION_TABLE: Lazy<RwLockHashMap<TypeId, GenericId>> = Lazy::new(|| RwLock::new(HashMap::new()));
 
 // NOT QUITE
 // Use an event_table file in the future
-pub fn register_event_type<T: GameEvent + 'static>(constructor: fn() -> Box<dyn GameEvent>) -> GenericId {
+// WHAT
+// Want to write the constructor lambda in the file? Are you insane?!?
+pub fn register_event_type<T: GameEvent + 'static>(constructor: EventConstructor) -> GenericId {
 	let mut event_table = EVENT_TABLE.write().unwrap();
-	let id = event_table.len() as GenericId;
+	let id = event_table.len() as GenericId; // Dependant on the order of registration
 	event_table.push(constructor);
+
 	let mut association_table = TYPE_ASSOCIATION_TABLE.write().unwrap();
 	association_table.insert(TypeId::of::<T>(), id);
 	id
 }
 
-pub fn get_event_constructor(id: GenericId) -> Option<fn() -> Box<dyn GameEvent>> {
+pub fn get_event_constructor(id: GenericId) -> Option<EventConstructor> {
 	let event_table = EVENT_TABLE.read().unwrap();
 	match event_table.get(id as usize) {
 		Some(func) => Some(*func),
