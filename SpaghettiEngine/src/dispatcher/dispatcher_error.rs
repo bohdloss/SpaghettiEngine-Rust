@@ -6,6 +6,12 @@ pub struct DispatcherError {
     message: Option<String>
 }
 
+impl Error for DispatcherError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.error
+    }
+}
+
 impl Debug for DispatcherError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self::Display::fmt(self, f)
@@ -27,10 +33,13 @@ impl Display for DispatcherError {
 }
 
 impl DispatcherError {
-    pub fn new(error: Option<&'static dyn Error>, message: Option<String>) -> DispatcherError {
+    pub fn new(error: Option<&'static dyn Error>, message: Option<&str>) -> DispatcherError {
         DispatcherError {
             error,
-            message
+            message: match message {
+                Some(string) => Some(string.to_string()),
+                None => None
+            }
         }
     }
 

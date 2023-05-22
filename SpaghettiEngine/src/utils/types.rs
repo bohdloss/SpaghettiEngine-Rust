@@ -75,9 +75,6 @@ pub type WeakMutexVecDeque<T> = WeakMutex<VecDeque<T>>;
 #[allow(non_camel_case_types)]
 pub type float = f32;
 
-pub type ObjectId = u32; // These need to be slightly smaller because they will be sent via network
-pub type GenericId = u64; // These can be bigger
-
 pub type Vector2i = Vector2<i32>;
 pub type Vector2f = Vector2<float>;
 

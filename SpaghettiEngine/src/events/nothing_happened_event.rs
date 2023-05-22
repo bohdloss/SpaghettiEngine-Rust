@@ -1,5 +1,6 @@
 use spaghetti_engine_derive::{AsAny, GameEvent};
 use crate::events::game_event::*;
+use crate::events::game_event;
 use crate::utils::AsAny;
 
 /// ░░░░░▄▄▄▄▀▀▀▀▀▀▀▀▄▄▄▄▄▄░░░░░░░░<br>
@@ -19,13 +20,19 @@ use crate::utils::AsAny;
 /// ░░░░░░░░░░░░░░▀▄▄▄▄▄░░░░░░░░█░░<br>
 #[derive(GameEvent, AsAny)]
 pub struct NothingHappenedEvent {
-	event: EventData
+	event_data: EventData
 }
 
 impl NothingHappenedEvent {
+	pub fn new_empty() -> Self {
+		Self {
+			event_data: EventData::new()
+		}
+	}
+
 	pub fn new() -> Self {
 		Self {
-			event: EventData::new()
+			event_data: EventData::new()
 		}
 	}
 }

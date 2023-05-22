@@ -1,6 +1,6 @@
 use crate::dispatcher::{DispatcherError};
 use std::collections::vec_deque::VecDeque;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::thread::ThreadId;
 use std::time::Duration;
@@ -8,7 +8,7 @@ use crate::dispatcher::execute::{Execute};
 use crate::utils::types::*;
 
 pub struct FunctionDispatcher {
-    call_queue: RwLockVecDeque<ArcRwLock<FunctionHandle>>,
+    call_queue: MutexVecDeque<ArcRwLock<FunctionHandle>>,
     thread_id: ThreadId
 }
 
@@ -34,7 +34,7 @@ impl FunctionDispatcher {
 	/// * The newly constructed dispatcher
     pub fn from_thread(thread_id: ThreadId) -> Self {
         Self {
-            call_queue: RwLock::new(VecDeque::new()),
+            call_queue: Mutex::new(VecDeque::new()),
             thread_id
         }
     }
@@ -61,7 +61,7 @@ impl FunctionDispatcher {
 	        }
         } else {
 	        {
-		        let mut queue = self.call_queue.write().unwrap();
+		        let mut queue = self.call_queue.lock().unwrap();
 		        queue.push_back(handle.clone());
 	        }
         }
@@ -93,7 +93,7 @@ impl FunctionDispatcher {
 	/// Computes all queued functions. Must only be called on the owning thread
 	pub fn compute_tasks(&self) {
 		loop {
-			let mut queue = self.call_queue.write().unwrap();
+			let mut queue = self.call_queue.lock().unwrap();
 			if let Some(locked) = queue.pop_front() {
 					locked.write().unwrap().process();
 			} else { break; }
@@ -125,12 +125,12 @@ impl FunctionHandle {
 	/// running yet. It is advised to call `wait_completion()` before this method
 	pub fn get_return_value(&mut self) -> Result<Option<u64>, DispatcherError> {
 		if !self.finished {
-			return Err(DispatcherError::new(None, Some(String::from("Not finished yet"))));
+			return Err(DispatcherError::new(None, Some("Not finished yet")));
 		}
 		if self.return_value.is_some() {
 			return self.return_value.take().unwrap();
 		}
-		return Err(DispatcherError::new(None, Some(String::from("Return value not ready yet"))))
+		return Err(DispatcherError::new(None, Some("Return value not ready yet")))
 	}
 
 	/// Waits for the function to finish running before returning

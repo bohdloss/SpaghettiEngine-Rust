@@ -1,12 +1,18 @@
 use std::any::{TypeId};
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::sync::RwLock;
 use once_cell::sync::Lazy;
+use spaghetti_engine_derive::Id;
 use crate::events::game_event::EventSource::*;
 use crate::networking::replicate::Replicate;
 use crate::utils::as_any::AsAny;
-use crate::utils::id_provider;
 use crate::utils::types::*;
+
+#[derive(Id)]
+#[bits32]
+struct _EventId;
 
 #[derive(Copy, Clone)]
 pub enum EventSource {
@@ -16,7 +22,7 @@ pub enum EventSource {
 }
 
 pub struct EventData {
-	id: ObjectId,
+	id: EventId,
 	from: EventSource,
 	cancelled: bool
 }
@@ -24,41 +30,37 @@ pub struct EventData {
 impl EventData {
 	pub fn new() -> Self {
 		Self {
-			id: id_provider::generate_object_id(),
+			id: EventId::new(),
 			from: NotSet,
 			cancelled: false
 		}
 	}
-}
 
-impl Drop for EventData {
-	fn drop(&mut self) {
-		id_provider::free_object_id(self.id)
+	pub fn set_from(&mut self, from: EventSource) {
+		if let NotSet = self.from {
+			self.from = from;
+		}
 	}
+
+	pub fn get_from(&self) -> EventSource {
+		self.from
+	}
+	pub fn get_id(&self) -> &EventId {
+		&self.id
+	}
+	pub fn set_cancelled(&mut self, cancelled: bool) {
+		self.cancelled = cancelled;
+	}
+	pub fn is_cancelled(&self) -> bool {
+		self.cancelled
+	}
+
 }
 
 pub trait GameEvent : AsAny {
-	fn set_from(&mut self, from: EventSource) {
-		let data = self.get_event_data_mut();
-		if let NotSet = data.from {
-			data.from = from;
-		}
-	}
-	fn get_from(&self) -> EventSource {
-		self.get_event_data().from
-	}
-	fn get_id(&self) -> ObjectId {
-		self.get_event_data().id
-	}
-	fn set_cancelled(&mut self, cancelled: bool) {
-		self.get_event_data_mut().cancelled = cancelled;
-	}
-	fn is_cancelled(&self) -> bool {
-		self.get_event_data().cancelled
-	}
 	fn get_event_data(&self) -> &EventData;
 	fn get_event_data_mut(&mut self) -> &mut EventData;
-	fn get_event_type(&self) -> GenericId;
+	fn get_event_type(&self) -> u64;
 }
 
 impl<T: GameEvent> Replicate for T {
@@ -85,32 +87,35 @@ impl<T: GameEvent> Replicate for T {
 
 pub type EventConstructor = fn() -> Box<dyn GameEvent>;
 
-static EVENT_TABLE: RwLockVec<EventConstructor> = RwLock::new(Vec::new());
-static TYPE_ASSOCIATION_TABLE: Lazy<RwLockHashMap<TypeId, GenericId>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static EVENT_TABLE: Lazy<RwLockHashMap<u64, EventConstructor>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static TYPE_ASSOCIATION_TABLE: Lazy<RwLockHashMap<TypeId, u64>> = Lazy::new(|| RwLock::new(HashMap::new()));
 
-// NOT QUITE
-// Use an event_table file in the future
-// WHAT
-// Want to write the constructor lambda in the file? Are you insane?!?
-pub fn register_event_type<T: GameEvent + 'static>(constructor: EventConstructor) -> GenericId {
+pub fn register_event_type<T: GameEvent + 'static>(constructor: EventConstructor) -> u64 {
 	let mut event_table = EVENT_TABLE.write().unwrap();
-	let id = event_table.len() as GenericId; // Dependant on the order of registration
-	event_table.push(constructor);
 
+	// Generate an id for the event
+	let mut hasher = DefaultHasher::new();
+	stringify!(T).hash(&mut hasher);
+	let id = hasher.finish();
+
+	// Add to the table
+	event_table.insert(id, constructor);
+
+	// Register to type association table
 	let mut association_table = TYPE_ASSOCIATION_TABLE.write().unwrap();
 	association_table.insert(TypeId::of::<T>(), id);
 	id
 }
 
-pub fn get_event_constructor(id: GenericId) -> Option<EventConstructor> {
+pub fn get_event_constructor(event_type: u64) -> Option<EventConstructor> {
 	let event_table = EVENT_TABLE.read().unwrap();
-	match event_table.get(id as usize) {
+	match event_table.get(&event_type) {
 		Some(func) => Some(*func),
 		None => None
 	}
 }
 
-pub fn get_event_id<T: GameEvent + 'static>() -> Option<GenericId> {
+pub fn get_event_type<T: GameEvent + 'static>() -> Option<u64> {
 	let association_table = TYPE_ASSOCIATION_TABLE.read().unwrap();
 	match association_table.get(&TypeId::of::<T>()) {
 		Some(id) => Some(*id),
