@@ -4,7 +4,6 @@ use std::{rc, sync};
 use std::rc::{Rc};
 use std::sync::{Arc, Mutex, RwLock};
 use cgmath::{Vector2, Vector3, Vector4};
-use crate::dispatcher::DispatcherError;
 
 /*
 Used only to type less pointy brackets
@@ -83,7 +82,3 @@ pub type Vector3f = Vector3<float>;
 
 pub type Vector4i = Vector4<i32>;
 pub type Vector4f = Vector4<float>;
-
-// Functions / Errors / Return types
-pub type DispatcherReturn = Result<Option<u64>, DispatcherError>;
-pub type DispatcherFunction = fn() -> DispatcherReturn;

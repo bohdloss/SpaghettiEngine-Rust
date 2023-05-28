@@ -131,6 +131,9 @@ struct EventRequest {
 	event_type: u64,
 	request_id: EventRequestHandle
 }
+
+
+
 impl EventRequest {
 	fn new(event: Box<dyn GameEvent>) -> Self {
 		let event_type = event.get_event_type();

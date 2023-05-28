@@ -2,7 +2,6 @@ use spaghetti_engine_derive::{AsAny, GameEvent};
 use crate::events::EventData;
 use crate::events::GameEvent;
 use crate::events::game_event;
-use crate::settings;
 use crate::settings::Setting;
 use crate::settings::Setting::*;
 use crate::utils::AsAny;
@@ -37,10 +36,6 @@ impl SettingChangedEvent {
 
 	pub fn get_setting_name(&self) -> &str {
 		&self.setting_name
-	}
-
-	pub fn get_engine_setting_name(&self) -> &str {
-		&self.setting_name[settings::game_settings::PREFIX.len()..]
 	}
 
 	pub fn get_old_value(&self) -> &Setting {

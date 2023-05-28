@@ -1,11 +1,11 @@
-use crate::dispatcher::FunctionDispatcher;
 use crate::events::event_dispatcher::EventDispatcher;
+use crate::settings::GameSettings;
 use crate::world::GameState;
 
 pub struct Game {
 	event_dispatcher: EventDispatcher,
 	game_state: GameState,
-	primary_dispatcher: FunctionDispatcher,
+	game_settings: GameSettings,
 	is_client: bool
 }
 
@@ -13,10 +13,6 @@ impl Game {
 
 	pub fn get_event_dispatcher(&self) -> &EventDispatcher {
 		&self.event_dispatcher
-	}
-
-	pub fn get_primary_dispatcher(&self) -> &FunctionDispatcher {
-		&self.primary_dispatcher
 	}
 
 	pub fn is_client(&self) -> bool {
@@ -27,4 +23,11 @@ impl Game {
 		&self.game_state
 	}
 
+	pub fn get_settings(&self) -> &GameSettings {
+		&self.game_settings
+	}
+
+	pub fn get_index(&self) -> u64 {
+		0
+	}
 }

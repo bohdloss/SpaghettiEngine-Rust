@@ -57,7 +57,7 @@ impl EventData {
 
 }
 
-pub trait GameEvent : AsAny {
+pub trait GameEvent : Send + AsAny {
 	fn get_event_data(&self) -> &EventData;
 	fn get_event_data_mut(&mut self) -> &mut EventData;
 	fn get_event_type(&self) -> u64;
