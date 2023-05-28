@@ -131,9 +131,7 @@ impl Logger {
             drop(severity);
         }
 
-        let severity = self.data.read().unwrap();
-
-        if message_severity >= severity.print_severity {
+        if message_severity >= self.data.read().unwrap().print_severity {
             // Retrieve some data
             let is_game;
             let game_index;
@@ -159,7 +157,7 @@ impl Logger {
                           date.minute(),
                           date.second(),
                           date.timestamp_subsec_millis(),
-                          if is_game {"GAME "} else {"GLOBAL"},
+                          if is_game {"GAME "} else {"GLOBAL "},
                           if is_game {game_index} else {0},
                           thread_name,
                           message_severity,
@@ -173,7 +171,7 @@ impl Logger {
                          date.minute(),
                          date.second(),
                          date.timestamp_subsec_millis(),
-                    if is_game {"GAME "} else {"GLOBAL"},
+                    if is_game {"GAME "} else {"GLOBAL "},
                     if is_game {game_index} else {0},
                     thread_name,
                     message_severity,
@@ -184,6 +182,7 @@ impl Logger {
         // Only if we haven't attempted to create the file yet...
         if !self.data.read().unwrap().create_attempt {
 
+            self.create_log_file();
             // ...and we have a valid game pointer...
             if let Some(game) = self.game.upgrade() {
 
@@ -199,6 +198,7 @@ impl Logger {
         }
 
         let mut data = self.data.write().unwrap();
+        data.create_attempt = true;
 
         // Write to the file only if it's open
         if let Some(file_ptr) = &data.log_file {
@@ -227,7 +227,7 @@ impl Logger {
                       date.minute(),
                       date.second(),
                       date.timestamp_subsec_millis(),
-                      if is_game {"GAME "} else {"GLOBAL"},
+                      if is_game {"GAME "} else {"GLOBAL "},
                       if is_game {game_index} else {0},
                       thread_name,
                       message_severity,
@@ -277,22 +277,30 @@ impl Logger {
                 data.log_file = Some(Arc::new(Mutex::new(file)));
             },
             Err(error) => {
+                data.log_file = None;
                 eprintln!("Error while creating log file: {}", error);
             }
         }
-        // Dont try again
-        data.create_attempt = true;
     }
 
     fn gen_error_str(error: &dyn Error) -> String {
         let mut err_str = format!("Error: {}", error);
         let mut source_option = error.source();
         while let Some(source) = source_option {
-            let to_push = format!("Caused by: {}", source);
+            let to_push = format!("\nCaused by: {}", source);
             err_str.push_str(&to_push);
             source_option = source.source();
         }
         err_str
+    }
+
+    fn apply_to_current<F>(function: F) where F: Fn(&Logger) {
+        let game = Game::get_instance();
+        if let Some(game) = game.upgrade() {
+            function(game.get_logger());
+        } else {
+            function(&GLOBAL_LOGGER);
+        }
     }
 
     pub fn get_print_severity(&self) -> Severity {
@@ -323,49 +331,106 @@ impl Logger {
         self.data.write().unwrap().log_file = file;
     }
 
-    pub fn debug(&self, message: &str) {
+    pub fn print_debug(&self, message: &str) {
         self.print(DEBUG, message);
     }
 
-    pub fn debug_err(&self, message: &str, error: &dyn Error) {
+    pub fn print_debug_err(&self, message: &str, error: &dyn Error) {
         self.print(DEBUG, message);
         self.print(DEBUG, &Logger::gen_error_str(error));
     }
 
-    pub fn info(&self, message: &str) {
+    pub fn print_info(&self, message: &str) {
         self.print(INFO, message);
     }
 
-    pub fn info_err(&self, message: &str, error: &dyn Error) {
+    pub fn print_info_err(&self, message: &str, error: &dyn Error) {
         self.print(INFO, message);
         self.print(INFO, &Logger::gen_error_str(error));
     }
 
-    pub fn warning(&self, message: &str) {
+    pub fn print_loading(&self, message: &str) {
+        self.print(LOADING, message);
+    }
+
+    pub fn print_loading_err(&self, message: &str, error: &dyn Error) {
+        self.print(LOADING, message);
+        self.print(LOADING, &Logger::gen_error_str(error));
+    }
+
+    pub fn print_warning(&self, message: &str) {
         self.print(WARNING, message);
     }
 
-    pub fn warning_err(&self, message: &str, error: &dyn Error) {
+    pub fn print_warning_err(&self, message: &str, error: &dyn Error) {
         self.print(WARNING, message);
         self.print(WARNING, &Logger::gen_error_str(error));
     }
 
-    pub fn error(&self, message: &str) {
+    pub fn print_error(&self, message: &str) {
         self.print(ERROR, message);
     }
 
-    pub fn error_err(&self, message: &str, error: &dyn Error) {
+    pub fn print_error_err(&self, message: &str, error: &dyn Error) {
         self.print(ERROR, message);
         self.print(ERROR, &Logger::gen_error_str(error));
     }
 
-    pub fn fatal(&self, message: &str) {
+    pub fn print_fatal(&self, message: &str) {
         self.print(FATAL, message);
     }
 
-    pub fn fatal_err(&self, message: &str, error: &dyn Error) {
+    pub fn print_fatal_err(&self, message: &str, error: &dyn Error) {
         self.print(FATAL, message);
         self.print(FATAL, &Logger::gen_error_str(error));
+    }
+
+    pub fn debug(message: &str) {
+        Logger::apply_to_current(|logger| logger.print_debug(message));
+    }
+
+    pub fn debug_err(message: &str, error: &dyn Error) {
+        Logger::apply_to_current(|logger| logger.print_debug_err(message, error));
+    }
+
+    pub fn info(message: &str) {
+        Logger::apply_to_current(|logger| logger.print_info(message));
+    }
+
+    pub fn info_err(message: &str, error: &dyn Error) {
+        Logger::apply_to_current(|logger| logger.print_info_err(message, error));
+    }
+
+    pub fn loading(message: &str) {
+        Logger::apply_to_current(|logger| logger.print_loading(message));
+    }
+
+    pub fn loading_err(message: &str, error: &dyn Error) {
+        Logger::apply_to_current(|logger| logger.print_loading_err(message, error));
+    }
+
+    pub fn warning(message: &str) {
+        Logger::apply_to_current(|logger| logger.print_warning(message));
+    }
+
+    pub fn warning_err(message: &str, error: &dyn Error) {
+        Logger::apply_to_current(|logger| logger.print_warning_err(message, error));
+    }
+
+    pub fn error(message: &str) {
+        Logger::apply_to_current(|logger| logger.print_error(message));
+    }
+
+    pub fn error_err(message: &str, error: &dyn Error) {
+        Logger::apply_to_current(|logger| logger.print_error_err(message, error));
+    }
+
+    pub fn fatal(message: &str) {
+        Logger::apply_to_current(|logger| logger.print_fatal(message));
+    }
+
+    pub fn fatal_err(message: &str, error: &dyn Error) {
+        Logger::apply_to_current(|logger| logger.print_fatal_err(message, error));
     }
 
 }

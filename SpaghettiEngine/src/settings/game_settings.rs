@@ -68,8 +68,8 @@ impl GameSettings {
 
 		// Logging
 		new.set("log.autoCreate", Boolean(true));
-		new.set("log.printSeverity", LogSeverity(INFO)); // TODO LOGGER CONST
-		new.set("log.fileSeverity", LogSeverity(DEBUG)); // TODO LOGGER CONST
+		new.set("log.printSeverity", LogSeverity(INFO));
+		new.set("log.fileSeverity", LogSeverity(DEBUG));
 
 		new
 	}
