@@ -182,7 +182,6 @@ impl Logger {
         // Only if we haven't attempted to create the file yet...
         if !self.data.read().unwrap().create_attempt {
 
-            self.create_log_file();
             // ...and we have a valid game pointer...
             if let Some(game) = self.game.upgrade() {
 
