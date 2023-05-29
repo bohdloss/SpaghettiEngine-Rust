@@ -1,10 +1,11 @@
 use std::fmt::{Display, Formatter};
-use std::io::Write;
-use std::{fs, sync, thread};
+use std::io::{Stderr, Stdout, Write};
+use std::{fs, io, sync, thread};
 use std::error::Error;
 use std::fs::File;
+use std::ops::DerefMut;
 use std::path::Path;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, MutexGuard};
 use chrono::{Datelike, Timelike, Utc};
 use once_cell::sync::Lazy;
 use crate::core::Game;
@@ -65,7 +66,7 @@ pub struct Logger {
     game: sync::Weak<Game>,
     super_prefix: String,
     super_logger: sync::Weak<Logger>,
-    data: RwLock<LoggerData>
+    data: Mutex<LoggerData>
 }
 
 impl Logger {
@@ -76,7 +77,7 @@ impl Logger {
         let data;
         if let Some(logger) = super_logger.upgrade() {
             game = logger.game.clone();
-            let guard = logger.data.read().unwrap();
+            let guard = logger.data.lock().unwrap();
             data = guard.clone();
         } else {
             game = sync::Weak::new();
@@ -87,7 +88,7 @@ impl Logger {
             game,
             super_prefix: format!("[{}]", prefix).to_string(),
             super_logger,
-            data: RwLock::new(data)
+            data: Mutex::new(data)
         }
     }
 
@@ -96,7 +97,7 @@ impl Logger {
             game,
             super_prefix: "".to_string(),
             super_logger: sync::Weak::new(),
-            data: RwLock::new(LoggerData::new(UNKNOWN, UNKNOWN))
+            data: Mutex::new(LoggerData::new(UNKNOWN, UNKNOWN))
         }
     }
 
@@ -106,151 +107,66 @@ impl Logger {
             return;
         }
 
-        let severity = self.data.read().unwrap();
+        let mut data = self.data.lock().unwrap();
         // Severity is uninitialized
-        if severity.print_severity == UNKNOWN || severity.file_severity == UNKNOWN {
-            drop(severity);
-            let mut severity = self.data.write().unwrap();
+        if data.print_severity == UNKNOWN || data.file_severity == UNKNOWN {
 
-            // Only update severity if we have a valid game pointer
+            // Attempt to get the severity from the game settings
             if let Some(game) = self.game.upgrade() {
                 // Print severity
                 if let LogSeverity(print) = game.get_settings().get("log.printSeverity") {
-                    severity.print_severity = print;
+                    data.print_severity = print;
+                } else {
+                    data.print_severity = MIN_SEVERITY;
                 }
 
                 // File severity
                 if let LogSeverity(file) = game.get_settings().get("log.fileSeverity") {
-                    severity.file_severity = file;
+                    data.file_severity = file;
+                } else {
+                    data.file_severity = MIN_SEVERITY;
                 }
             } else {
-                severity.print_severity = MIN_SEVERITY;
-                severity.file_severity = MIN_SEVERITY;
-            }
-        } else {
-            drop(severity);
-        }
-
-        if message_severity >= self.data.read().unwrap().print_severity {
-            // Retrieve some data
-            let is_game;
-            let game_index;
-            let thread = thread::current();
-            let thread_name = thread.name().unwrap_or("*unnamed_thread*");
-            let date = Utc::now();
-
-            if let Some(game) = self.game.upgrade() {
-                is_game = true;
-                game_index = game.get_index();
-            } else {
-                is_game = false;
-                game_index = 0;
-            }
-
-
-            if message_severity >= ERROR {
-                eprintln!("[{}/{}/{} {}:{}:{}.{}][{}{}][{}][{}]: {}",
-                          date.day(),
-                          date.month(),
-                          date.year(),
-                          date.hour(),
-                          date.minute(),
-                          date.second(),
-                          date.timestamp_subsec_millis(),
-                          if is_game {"GAME "} else {"GLOBAL "},
-                          if is_game {game_index} else {0},
-                          thread_name,
-                          message_severity,
-                          message);
-            } else {
-                println!("[{}/{}/{} {}:{}:{}.{}][{}{}][{}][{}]: {}",
-                         date.day(),
-                         date.month(),
-                         date.year(),
-                         date.hour(),
-                         date.minute(),
-                         date.second(),
-                         date.timestamp_subsec_millis(),
-                    if is_game {"GAME "} else {"GLOBAL "},
-                    if is_game {game_index} else {0},
-                    thread_name,
-                    message_severity,
-                    message);
+                data.print_severity = MIN_SEVERITY;
+                data.file_severity = MIN_SEVERITY;
             }
         }
 
-        // Only if we haven't attempted to create the file yet...
-        if !self.data.read().unwrap().create_attempt {
+        if message_severity >= data.print_severity {
+            self.write_std(message_severity, message);
+        }
 
-            // ...and we have a valid game pointer...
-            if let Some(game) = self.game.upgrade() {
+        if message_severity >= data.file_severity {
+            // Only if we haven't attempted to create the file yet...
+            if !data.create_attempt {
 
-                // ...and this engine setting exists...
-                if let Boolean(create_log) = game.get_settings().get("log.autoCreate") {
+                // ...and we have a valid game pointer...
+                if let Some(game) = self.game.upgrade() {
 
-                    // ...and the option tells us to create the file
-                    if create_log {
-                        self.create_log_file();
+                    // ...and this engine setting exists...
+                    if let Boolean(create_log) = game.get_settings().get("log.autoCreate") {
+
+                        // ...and the option tells us to create the file
+                        if create_log {
+                            self.create_log_file(&mut data);
+                        }
                     }
                 }
+                data.create_attempt = true;
             }
+
+            self.write_file(&mut data, message_severity, message);
         }
 
-        let mut data = self.data.write().unwrap();
-        data.create_attempt = true;
-
-        // Write to the file only if it's open
-        if let Some(file_ptr) = &data.log_file {
-            let mut file = file_ptr.lock().unwrap();
-
-            // Retrieve some data
-            let is_game;
-            let game_index;
-            let thread = thread::current();
-            let thread_name = thread.name().unwrap_or("*unnamed_thread*");
-            let date = Utc::now();
-
-            if let Some(game) = self.game.upgrade() {
-                is_game = true;
-                game_index = game.get_index();
-            } else {
-                is_game = false;
-                game_index = 0;
-            }
-
-            let write_result = writeln!(file, "[{}/{}/{} {}:{}:{}.{}][{}{}][{}][{}]: {}",
-                      date.day(),
-                      date.month(),
-                      date.year(),
-                      date.hour(),
-                      date.minute(),
-                      date.second(),
-                      date.timestamp_subsec_millis(),
-                      if is_game {"GAME "} else {"GLOBAL "},
-                      if is_game {game_index} else {0},
-                      thread_name,
-                      message_severity,
-                      message);
-
-            match write_result {
-                Err(error) => {
-                    // Write error, handle is probably dead, invalidate it
-                    drop(file);
-                    data.log_file = None;
-
-                    eprintln!("Cannot write to log file: {}", error)
-                },
-                _ => {}
-            }
-        }
     }
 
-    fn create_log_file(&self) {
+    fn create_log_file(&self, data: &mut MutexGuard<LoggerData>) {
         // Try to create a logs folder
         match fs::create_dir_all("./logs") {
             Ok(_) => {},
             Err(error) => {
-                eprintln!("Error while creating folder structure for log files: {}", error);
+                Self::safe_print(true, "Error while creating folder structure for log files: ");
+                Self::safe_println(true, Self::gen_error_str(&error).as_str());
                 return;
             }
         }
@@ -269,7 +185,6 @@ impl Logger {
             log_file_path = Path::new(&name2);
         }
 
-        let mut data = self.data.write().unwrap();
         match File::create(log_file_path) {
             Ok(file) => {
                 // Update the log file
@@ -277,9 +192,71 @@ impl Logger {
             },
             Err(error) => {
                 data.log_file = None;
-                eprintln!("Error while creating log file: {}", error);
+                Self::safe_print(true, "Error while creating log file: ");
+                Self::safe_println(true, Self::gen_error_str(&error).as_str());
             }
         }
+    }
+
+    fn write_std(&self, message_severity: Severity, message: &str) {
+        if message_severity >= ERROR {
+            self.do_write(&mut io::stderr(), message_severity, message).unwrap_or(());
+        } else {
+            self.do_write(&mut io::stdout(), message_severity, message).unwrap_or(());
+        }
+    }
+
+    fn write_file(&self, data: &mut MutexGuard<LoggerData>, message_severity: Severity, message: &str) {
+        // Write to the file only if it's open
+        if let Some(file_ptr) = &data.log_file {
+            let mut file = file_ptr.lock().unwrap();
+
+            let write_result = self.do_write(file.deref_mut(), message_severity, message);
+            match write_result {
+                Err(error) => {
+                    // Write error, handle is probably dead, invalidate it
+                    drop(file);
+                    data.log_file = None;
+
+                    Self::safe_print(true, "Cannot write to log file: ");
+                    Self::safe_println(true, Self::gen_error_str(&error).as_str());
+                },
+                _ => {}
+            }
+        }
+    }
+
+    fn do_write<T>(&self, device: &mut T, message_severity: Severity, message: &str)
+        -> io::Result<()>
+        where T: Write {
+        // Retrieve some data
+        let is_game;
+        let game_index;
+        let thread = thread::current();
+        let thread_name = thread.name().unwrap_or("*unnamed_thread*");
+        let date = Utc::now();
+
+        if let Some(game) = self.game.upgrade() {
+            is_game = true;
+            game_index = game.get_index();
+        } else {
+            is_game = false;
+            game_index = 0;
+        }
+
+        writeln!(device, "[{}/{}/{} {}:{}:{}.{}][{}{}][{}][{}]: {}",
+                 date.day(),
+                 date.month(),
+                 date.year(),
+                 date.hour(),
+                 date.minute(),
+                 date.second(),
+                 date.timestamp_subsec_millis(),
+                 if is_game {"GAME "} else {"GLOBAL "},
+                 if is_game {game_index} else {0},
+                 thread_name,
+                 message_severity,
+                 message)
     }
 
     fn gen_error_str(error: &dyn Error) -> String {
@@ -303,31 +280,31 @@ impl Logger {
     }
 
     pub fn get_print_severity(&self) -> Severity {
-        self.data.read().unwrap().print_severity
+        self.data.lock().unwrap().print_severity
     }
 
     pub fn set_print_severity(&self, print_severity: Severity) {
         if let Some(game) = self.game.upgrade() {
             game.get_settings().set("log.printSeverity", LogSeverity(print_severity));
         } else {
-            self.data.write().unwrap().print_severity = print_severity;
+            self.data.lock().unwrap().print_severity = print_severity;
         }
     }
 
     pub fn get_file_severity(&self) -> Severity {
-        self.data.read().unwrap().file_severity
+        self.data.lock().unwrap().file_severity
     }
 
     pub fn set_file_severity(&self, print_severity: Severity) {
         if let Some(game) = self.game.upgrade() {
             game.get_settings().set("log.fileSeverity", LogSeverity(print_severity));
         } else {
-            self.data.write().unwrap().file_severity = print_severity;
+            self.data.lock().unwrap().file_severity = print_severity;
         }
     }
 
     pub fn set_log_file(&self, file: Option<Arc<Mutex<File>>>) {
-        self.data.write().unwrap().log_file = file;
+        self.data.lock().unwrap().log_file = file;
     }
 
     pub fn print_debug(&self, message: &str) {
@@ -430,6 +407,28 @@ impl Logger {
 
     pub fn fatal_err(message: &str, error: &dyn Error) {
         Logger::apply_to_current(|logger| logger.print_fatal_err(message, error));
+    }
+
+    pub fn safe_print(error: bool, message: &str) {
+        enum Type {
+            OUT(Stdout),
+            ERR(Stderr)
+        }
+        impl Type {
+            fn as_writeable(&mut self) -> &mut dyn Write {
+                match self {
+                    Type::ERR(err) => &mut *err,
+                    Type::OUT(out) => &mut *out
+                }
+            }
+        }
+        let mut device = if error { Type::ERR(io::stderr()) } else { Type::OUT(io::stdout()) };
+        write!(device.as_writeable(), "{}", message).unwrap_or(());
+    }
+
+    pub fn safe_println(error: bool, message: &str) {
+        Self::safe_print(error, message);
+        Self::safe_print(error, "\n");
     }
 
 }
