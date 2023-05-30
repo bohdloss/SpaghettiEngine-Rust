@@ -1,6 +1,6 @@
 use std::{sync, thread};
 use std::collections::HashMap;
-use std::sync::{RwLock};
+use std::sync::{Arc, RwLock};
 use std::thread::ThreadId;
 use once_cell::sync::Lazy;
 use crate::events::event_dispatcher::EventDispatcher;
@@ -15,7 +15,7 @@ pub struct Game {
 	event_dispatcher: EventDispatcher,
 	game_state: GameState,
 	game_settings: GameSettings,
-	logger: Logger,
+	logger: Arc<Logger>,
 	is_client: bool
 }
 
@@ -45,8 +45,8 @@ impl Game {
 		&self.game_settings
 	}
 
-	pub fn get_logger(&self) -> &Logger {
-		&self.logger
+	pub fn get_logger(&self) -> Arc<Logger> {
+		self.logger.clone()
 	}
 
 	pub fn get_index(&self) -> u64 {

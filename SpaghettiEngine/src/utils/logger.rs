@@ -10,9 +10,10 @@ use chrono::{Datelike, Timelike, Utc};
 use once_cell::sync::Lazy;
 use crate::core::Game;
 use crate::settings::Setting::{Boolean, LogSeverity};
+use crate::utils::id_provider;
 use crate::utils::logger::Severity::*;
 
-static GLOBAL_LOGGER: Lazy<Logger> = Lazy::new(|| Logger::new(sync::Weak::new()));
+pub static GLOBAL_LOGGER: Lazy<Arc<Logger>> = Lazy::new(|| Logger::new(sync::Weak::new()));
 
 static MIN_SEVERITY: Severity = DEBUG;
 
@@ -46,17 +47,19 @@ struct LoggerData {
     print_severity: Severity,
     file_severity: Severity,
     log_file: Option<Arc<Mutex<File>>>,
-    create_attempt: bool
+    create_attempt: bool,
+    child_logger: sync::Weak<Logger>
 }
 
 impl LoggerData {
 
-    fn new(print_severity: Severity, file_severity: Severity) -> Self {
+    fn new() -> Self {
         Self {
-            print_severity,
-            file_severity,
+            print_severity: UNKNOWN,
+            file_severity: UNKNOWN,
             log_file: None,
-            create_attempt: false
+            create_attempt: false,
+            child_logger: sync::Weak::new()
         }
     }
 
@@ -64,49 +67,57 @@ impl LoggerData {
 
 pub struct Logger {
     game: sync::Weak<Game>,
-    super_prefix: String,
-    super_logger: sync::Weak<Logger>,
-    data: Mutex<LoggerData>
+    id: u64,
+    data: Mutex<LoggerData>,
+    prefix: &'static str
 }
 
 impl Logger {
 
-    pub fn from(super_logger: sync::Weak<Logger>, prefix: &str) -> Self {
-        // Clone some data from the super logger if the pointer is valid
-        let game;
-        let data;
-        if let Some(logger) = super_logger.upgrade() {
-            game = logger.game.clone();
-            let guard = logger.data.lock().unwrap();
-            data = guard.clone();
-        } else {
-            game = sync::Weak::new();
-            data = LoggerData::new(UNKNOWN, UNKNOWN);
-        }
-
-        Self {
+    pub fn new(game: sync::Weak<Game>) -> Arc<Self> {
+        Arc::new(Self {
             game,
-            super_prefix: format!("[{}]", prefix).to_string(),
-            super_logger,
-            data: Mutex::new(data)
+            id: id_provider::generate_id(),
+            data: Mutex::new(LoggerData::new()),
+            prefix: ""
+        })
+    }
+
+    pub fn push(prefix: &'static str) -> Arc<Self> {
+        let mut parent: Option<Arc<Logger>> = None;
+
+        // Find the lowest logger in the hierarchy
+        Logger::apply_to_current(|logger| {
+            let mut last_ptr = logger;
+            let mut sub_ptr = last_ptr.data.lock().unwrap().child_logger.upgrade();
+            while let Some(sub) = sub_ptr {
+                last_ptr = sub;
+                sub_ptr = last_ptr.data.lock().unwrap().child_logger.upgrade();
+            }
+
+            parent = Some(last_ptr);
+        });
+
+        match parent {
+            Some(value) => Self::from(&value, prefix),
+            None => Self::new(Game::get_instance())
         }
     }
 
-    pub fn new(game: sync::Weak<Game>) -> Self {
-        Self {
-            game,
-            super_prefix: "".to_string(),
-            super_logger: sync::Weak::new(),
-            data: Mutex::new(LoggerData::new(UNKNOWN, UNKNOWN))
-        }
+    fn from(logger: &Arc<Logger>, prefix: &'static str) -> Arc<Self> {
+        let new = Arc::new(Self {
+            game: logger.game.clone(),
+            id: id_provider::generate_id(),
+            data: Mutex::new(logger.data.lock().unwrap().clone()),
+            prefix
+        });
+
+        logger.data.lock().unwrap().child_logger = Arc::downgrade(&new);
+
+        new
     }
 
     fn print(&self, message_severity: Severity, message: &str) {
-        if let Some(super_logger) = self.super_logger.upgrade() {
-            super_logger.print(message_severity, format!("{} {}", self.super_prefix, message).as_str());
-            return;
-        }
-
         let mut data = self.data.lock().unwrap();
         // Severity is uninitialized
         if data.print_severity == UNKNOWN || data.file_severity == UNKNOWN {
@@ -244,7 +255,7 @@ impl Logger {
             game_index = 0;
         }
 
-        writeln!(device, "[{}/{}/{} {}:{}:{}.{}][{}{}][{}][{}]: {}",
+        write!(device, "[{}/{}/{} {}:{}:{}.{}][{}",
                  date.day(),
                  date.month(),
                  date.year(),
@@ -252,11 +263,53 @@ impl Logger {
                  date.minute(),
                  date.second(),
                  date.timestamp_subsec_millis(),
-                 if is_game {"GAME "} else {"GLOBAL "},
-                 if is_game {game_index} else {0},
-                 thread_name,
-                 message_severity,
-                 message)
+                 if is_game {"GAME"} else {"GLOBAL"}
+        )?;
+
+        if is_game {
+            write!(device, " {}", game_index)?;
+        }
+
+        write!(device, "][{}][{}]",
+                thread_name,
+                message_severity
+        )?;
+
+        let mut last_error = Ok(());
+        Logger::apply_to_current(|logger| {
+
+            // Write the prefix of the upmost logger
+            if logger.prefix != "" {
+                last_error = write!(device, "[{}]", logger.prefix);
+            }
+
+            // If this is our logger, stop, to avoid locking the same mutex twice ***
+            if logger.id == self.id {
+                return;
+            }
+            let mut sub_ptr = logger.data.lock().unwrap().child_logger.upgrade();
+            // Go down the hierarchy and write all prefixes
+            while let Some(sub) = sub_ptr {
+                // Same thing if we find our own logger while iterating
+                if sub.id == self.id {
+                    break;
+                }
+                sub_ptr = sub.data.lock().unwrap().child_logger.upgrade();
+
+                // Print child prefix
+                if sub.prefix != "" {
+                    last_error = write!(device, "[{}]", sub.prefix);
+                }
+            }
+        });
+        last_error?;
+
+        // *** This means we must manually write our own id now
+        if self.prefix != "" {
+            write!(device, "[{}]", self.prefix)?;
+        }
+
+        writeln!(device, ": {}", message)
     }
 
     fn gen_error_str(error: &dyn Error) -> String {
@@ -270,12 +323,12 @@ impl Logger {
         err_str
     }
 
-    fn apply_to_current<F>(function: F) where F: Fn(&Logger) {
+    fn apply_to_current<F>(mut function: F) where F: FnMut(Arc<Logger>) {
         let game = Game::get_instance();
         if let Some(game) = game.upgrade() {
             function(game.get_logger());
         } else {
-            function(&GLOBAL_LOGGER);
+            function(GLOBAL_LOGGER.clone());
         }
     }
 
@@ -431,4 +484,39 @@ impl Logger {
         Self::safe_print(error, "\n");
     }
 
+}
+
+impl Drop for Logger {
+    fn drop(&mut self) {
+        let mut parent: Option<Arc<Logger>> = None;
+
+        // Find our parent
+        Logger::apply_to_current(|logger| {
+            let mut last_ptr = logger;
+
+            if last_ptr.id == self.id {
+                parent = Some(last_ptr);
+                return;
+            }
+
+            let mut sub_ptr = last_ptr.data.lock().unwrap().child_logger.upgrade();
+            while let Some(sub) = sub_ptr {
+                if sub.id == self.id {
+                    break;
+                }
+                last_ptr = sub;
+                sub_ptr = last_ptr.data.lock().unwrap().child_logger.upgrade();
+            }
+
+            parent = Some(last_ptr);
+        });
+
+        // Set the child of the parent to our child
+        if let Some(value) = parent {
+            value.data.lock().unwrap().child_logger = self.data.lock().unwrap().child_logger.clone();
+        }
+
+        // Free our id
+        id_provider::free_id(self.id);
+    }
 }
