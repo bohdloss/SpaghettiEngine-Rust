@@ -18,6 +18,9 @@ static MIN_SEVERITY: Severity = DEBUG;
 static MAX_RECURSION_DEPTH: usize = 256;
 
 #[derive(Copy, Clone, Eq, PartialEq, PartialOrd)]
+/// Represents the severity of a logger message,
+/// and it will be displayed and used to determine
+/// if a message should be printed or not
 pub enum Severity {
     UNKNOWN,
     DEBUG,
@@ -42,11 +45,10 @@ impl Display for Severity {
     }
 }
 
-#[derive(Clone)]
 struct LoggerData {
     print_severity: Severity,
     file_severity: Severity,
-    log_file: Option<Arc<Mutex<File>>>,
+    log_file: Option<File>,
     create_attempt: bool
 }
 
@@ -63,38 +65,74 @@ impl LoggerData {
 
 }
 
+/// A logger allows you to print messages to stdout in a
+/// standardized way while also optionally logging them to a file
+///
+/// Unlike the print macro, a logger will not panic on an error but rather
+/// ignore it and, if the error happens while writing to a file, close the handle
 pub struct Logger {
     game: sync::Weak<Game>,
-    data: Mutex<LoggerData>,
+    data: Arc<Mutex<LoggerData>>,
     prefix: String,
     super_logger: sync::Weak<Logger>
 }
 
 impl Logger {
 
+    /// Creates a new logger for a given game instance
+    ///
+    /// # Arguments
+    /// * `game` - The game instance
+    ///
+    /// # Returns
+    /// * A new logger
     pub fn new(game: sync::Weak<Game>) -> Arc<Self> {
         Arc::new(Self {
             game,
-            data: Mutex::new(LoggerData::new()),
+            data: Arc::new(Mutex::new(LoggerData::new())),
             prefix: String::new(),
             super_logger: sync::Weak::new()
         })
     }
 
+    /// Creates a sub-logger of the given logger.
+    ///
+    /// When printing with this logger, it will act
+    /// exactly like its parent but will also print
+    /// the given prefix.
+    ///
+    /// Any change done to this logger will reflect on
+    /// the parent and vice versa
+    ///
+    /// # Arguments
+    /// - `logger` - The parent logger
+    /// - `prefix` - The prefix of this logger as a string literal
     pub fn from_str(logger: &Arc<Logger>, prefix: &str) -> Arc<Self> {
         Logger::from_string(logger, prefix.to_string())
     }
 
+    /// Creates a sub-logger of the given logger.
+    ///
+    /// When printing with this logger, it will act
+    /// exactly like its parent but will also print
+    /// the given prefix.
+    ///
+    /// Any change done to this logger will reflect on
+    /// the parent and vice versa
+    ///
+    /// # Arguments
+    /// - `logger` - The parent logger
+    /// - `prefix` - The prefix of this logger as a String
     pub fn from_string(logger: &Arc<Logger>, prefix: String) -> Arc<Self> {
         Arc::new(Self {
             game: logger.game.clone(),
-            data: Mutex::new(logger.data.lock().unwrap().clone()),
+            data: logger.data.clone(),
             prefix,
             super_logger: Arc::downgrade(logger)
         })
     }
 
-    fn print(&self, message_severity: Severity, message: &str) {
+    fn print(&self, message_severity: Severity, message: &str, error: Option<&dyn Error>) {
         let mut data = self.data.lock().unwrap();
         // Severity is uninitialized
         if data.print_severity == UNKNOWN || data.file_severity == UNKNOWN {
@@ -121,7 +159,7 @@ impl Logger {
         }
 
         if message_severity >= data.print_severity {
-            self.write_std(message_severity, message);
+            self.write_std(message_severity, message, error);
         }
 
         if message_severity >= data.file_severity {
@@ -143,7 +181,7 @@ impl Logger {
                 data.create_attempt = true;
             }
 
-            self.write_file(&mut data, message_severity, message);
+            self.write_file(&mut data, message_severity, message, error);
         }
 
     }
@@ -176,7 +214,7 @@ impl Logger {
         match File::create(log_file_path) {
             Ok(file) => {
                 // Update the log file
-                data.log_file = Some(Arc::new(Mutex::new(file)));
+                data.log_file = Some(file);
             },
             Err(error) => {
                 data.log_file = None;
@@ -186,24 +224,22 @@ impl Logger {
         }
     }
 
-    fn write_std(&self, message_severity: Severity, message: &str) {
+    fn write_std(&self, message_severity: Severity, message: &str, error: Option<&dyn Error>) {
         if message_severity >= ERROR {
-            self.do_write(&mut io::stderr(), message_severity, message).unwrap_or(());
+            self.do_write(&mut io::stderr(), message_severity, message, error).unwrap_or(());
         } else {
-            self.do_write(&mut io::stdout(), message_severity, message).unwrap_or(());
+            self.do_write(&mut io::stdout(), message_severity, message, error).unwrap_or(());
         }
     }
 
-    fn write_file(&self, data: &mut MutexGuard<LoggerData>, message_severity: Severity, message: &str) {
+    fn write_file(&self, data: &mut MutexGuard<LoggerData>, message_severity: Severity, message: &str, error: Option<&dyn Error>) {
         // Write to the file only if it's open
-        if let Some(file_ptr) = &data.log_file {
-            let mut file = file_ptr.lock().unwrap();
+        if let Some(file) = &mut data.log_file {
 
-            let write_result = self.do_write(file.deref_mut(), message_severity, message);
+            let write_result = self.do_write(file, message_severity, message, error);
             match write_result {
                 Err(error) => {
                     // Write error, handle is probably dead, invalidate it
-                    drop(file);
                     data.log_file = None;
 
                     Self::safe_print(true, "Cannot write to log file: ");
@@ -233,7 +269,7 @@ impl Logger {
         Ok(())
     }
 
-    fn do_write<T>(&self, device: &mut T, message_severity: Severity, message: &str)
+    fn do_write<T>(&self, device: &mut T, message_severity: Severity, message: &str, error: Option<&dyn Error>)
         -> io::Result<()>
         where T: Write {
         // Retrieve some data
@@ -273,7 +309,19 @@ impl Logger {
 
         self.write_prefix(device, 0)?;
 
-        writeln!(device, ": {}", message)
+        writeln!(device, ": {}", message)?;
+
+        // Write errors
+        if let Some(error) = error {
+            writeln!(device, "Error: {}", error)?;
+            let mut source_option = error.source();
+            while let Some(source) = source_option {
+                writeln!(device, "Caused by: {}", source)?;
+                source_option = error.source();
+            }
+        }
+
+        Ok(())
     }
 
     fn gen_error_str(error: &dyn Error) -> String {
@@ -296,10 +344,22 @@ impl Logger {
         }
     }
 
+    /// Retrieves the minimum severity this logger
+    /// requires for messages to be printed to
+    /// standard output
+    ///
+    /// # Returns
+    /// * The print severity
     pub fn get_print_severity(&self) -> Severity {
         self.data.lock().unwrap().print_severity
     }
 
+    /// Changes the game setting for the minimum
+    /// severity for messages to be printed to
+    /// standard output
+    ///
+    /// # Arguments
+    /// * `print_severity` - The new severity
     pub fn set_print_severity(&self, print_severity: Severity) {
         if let Some(game) = self.game.upgrade() {
             game.get_settings().set("log.printSeverity", LogSeverity(print_severity));
@@ -308,124 +368,246 @@ impl Logger {
         }
     }
 
+    /// Retrieves the minimum severity this logger
+    /// requires for messages to be written to file
+    ///
+    /// # Returns
+    /// * The print severity
     pub fn get_file_severity(&self) -> Severity {
         self.data.lock().unwrap().file_severity
     }
 
-    pub fn set_file_severity(&self, print_severity: Severity) {
+    /// Changes the game setting for the minimum
+    /// severity for messages to be written to file
+    ///
+    /// # Arguments
+    /// * `file_severity` - The new severity
+    pub fn set_file_severity(&self, file_severity: Severity) {
         if let Some(game) = self.game.upgrade() {
-            game.get_settings().set("log.fileSeverity", LogSeverity(print_severity));
+            game.get_settings().set("log.fileSeverity", LogSeverity(file_severity));
         } else {
-            self.data.lock().unwrap().file_severity = print_severity;
+            self.data.lock().unwrap().file_severity = file_severity;
         }
     }
 
-    pub fn set_log_file(&self, file: Option<Arc<Mutex<File>>>) {
+    /// Changes the file log messages are written to
+    ///
+    /// # Arguments
+    /// * `file` - The new file (or no file)
+    pub fn set_log_file(&self, file: Option<File>) {
         self.data.lock().unwrap().log_file = file;
     }
 
+    /// Logs a message with the DEBUG severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn print_debug(&self, message: &str) {
-        self.print(DEBUG, message);
+        self.print(DEBUG, message, None);
     }
 
+    /// Logs a message with an error with the DEBUG severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn print_debug_err(&self, message: &str, error: &dyn Error) {
-        self.print(DEBUG, message);
-        self.print(DEBUG, &Logger::gen_error_str(error));
+        self.print(DEBUG, message, Some(error));
     }
 
+    /// Logs a message with the INFO severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn print_info(&self, message: &str) {
-        self.print(INFO, message);
+        self.print(INFO, message, None);
     }
 
+    /// Logs a message with an error with the INFO severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn print_info_err(&self, message: &str, error: &dyn Error) {
-        self.print(INFO, message);
-        self.print(INFO, &Logger::gen_error_str(error));
+        self.print(INFO, message, Some(error));
     }
 
+    /// Logs a message with the LOADING severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn print_loading(&self, message: &str) {
-        self.print(LOADING, message);
+        self.print(LOADING, message, None);
     }
 
+    /// Logs a message with an error with the LOADING severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn print_loading_err(&self, message: &str, error: &dyn Error) {
-        self.print(LOADING, message);
-        self.print(LOADING, &Logger::gen_error_str(error));
+        self.print(LOADING, message, Some(error));
     }
 
+    /// Logs a message with the WARNING severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn print_warning(&self, message: &str) {
-        self.print(WARNING, message);
+        self.print(WARNING, message, None);
     }
 
+    /// Logs a message with an error with the WARNING severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn print_warning_err(&self, message: &str, error: &dyn Error) {
-        self.print(WARNING, message);
-        self.print(WARNING, &Logger::gen_error_str(error));
+        self.print(WARNING, message, Some(error));
     }
 
+    /// Logs a message with the ERROR severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn print_error(&self, message: &str) {
-        self.print(ERROR, message);
+        self.print(ERROR, message, None);
     }
 
+    /// Logs a message with an error with the ERROR severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn print_error_err(&self, message: &str, error: &dyn Error) {
-        self.print(ERROR, message);
-        self.print(ERROR, &Logger::gen_error_str(error));
+        self.print(ERROR, message, Some(error));
     }
 
+    /// Logs a message with the FATAL severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn print_fatal(&self, message: &str) {
-        self.print(FATAL, message);
+        self.print(FATAL, message, None);
     }
 
+    /// Logs a message with an error with the FATAL severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn print_fatal_err(&self, message: &str, error: &dyn Error) {
-        self.print(FATAL, message);
-        self.print(FATAL, &Logger::gen_error_str(error));
+        self.print(FATAL, message, Some(error));
     }
 
+    /// Logs a message with the DEBUG severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn debug(message: &str) {
         Logger::apply_to_current(|logger| logger.print_debug(message));
     }
 
+    /// Logs a message with an error with the DEBUG severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn debug_err(message: &str, error: &dyn Error) {
         Logger::apply_to_current(|logger| logger.print_debug_err(message, error));
     }
 
+    /// Logs a message with the INFO severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn info(message: &str) {
         Logger::apply_to_current(|logger| logger.print_info(message));
     }
 
+    /// Logs a message with an error with the INFO severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn info_err(message: &str, error: &dyn Error) {
         Logger::apply_to_current(|logger| logger.print_info_err(message, error));
     }
 
+    /// Logs a message with the LOADING severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn loading(message: &str) {
         Logger::apply_to_current(|logger| logger.print_loading(message));
     }
 
+    /// Logs a message with an error with the ERROR severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn loading_err(message: &str, error: &dyn Error) {
         Logger::apply_to_current(|logger| logger.print_loading_err(message, error));
     }
 
+    /// Logs a message with the WARNING severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn warning(message: &str) {
         Logger::apply_to_current(|logger| logger.print_warning(message));
     }
 
+    /// Logs a message with an error with the WARNING severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn warning_err(message: &str, error: &dyn Error) {
         Logger::apply_to_current(|logger| logger.print_warning_err(message, error));
     }
 
+    /// Logs a message with the ERROR severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn error(message: &str) {
         Logger::apply_to_current(|logger| logger.print_error(message));
     }
 
+    /// Logs a message with an error with the ERROR severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn error_err(message: &str, error: &dyn Error) {
         Logger::apply_to_current(|logger| logger.print_error_err(message, error));
     }
 
+    /// Logs a message with the FATAL severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
     pub fn fatal(message: &str) {
         Logger::apply_to_current(|logger| logger.print_fatal(message));
     }
 
+    /// Logs a message with an error with the FATAL severity
+    ///
+    /// # Arguments
+    /// * `message` - The message to print
+    /// * `error` - The error
     pub fn fatal_err(message: &str, error: &dyn Error) {
         Logger::apply_to_current(|logger| logger.print_fatal_err(message, error));
     }
 
+    /// Prints a message to standard output but will not panic in case
+    /// of an error (it will be ignored instead)
+    ///
+    /// # Arguments
+    /// * `error` - Whether to print the message to standard error or standard output
+    /// * `message` - The message to print
     pub fn safe_print(error: bool, message: &str) {
         enum Type {
             OUT(Stdout),
@@ -443,6 +625,12 @@ impl Logger {
         write!(device.as_writeable(), "{}", message).unwrap_or(());
     }
 
+    /// Prints a message to standard output and appends a newline character to it
+    /// but will not panic in case of an error (it will be ignored instead)
+    ///
+    /// # Arguments
+    /// * `error` - Whether to print the message to standard error or standard output
+    /// * `message` - The message to print
     pub fn safe_println(error: bool, message: &str) {
         Self::safe_print(error, message);
         Self::safe_print(error, "\n");
