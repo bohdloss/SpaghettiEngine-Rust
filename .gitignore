@@ -15,6 +15,5 @@ Cargo.lock
 
 **/.git
 **/.idea
-**/.gitignore
 **.log
 **/logs/

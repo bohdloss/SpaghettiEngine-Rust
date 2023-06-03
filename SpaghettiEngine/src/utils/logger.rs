@@ -317,7 +317,7 @@ impl Logger {
             let mut source_option = error.source();
             while let Some(source) = source_option {
                 writeln!(device, "Caused by: {}", source)?;
-                source_option = error.source();
+                source_option = source.source();
             }
         }
 
