@@ -22,6 +22,185 @@ pub enum Setting {
 	LogSeverity(Severity)
 }
 
+impl Setting {
+
+	pub fn is_empty(&self) -> bool {
+		match self {
+			Empty => true,
+			_ => false
+		}
+	}
+
+	pub fn is_boolean(&self) -> bool {
+		match self {
+			Boolean(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_string(&self) -> bool {
+		match self {
+			Str(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_unsigned_int(&self) -> bool {
+		match self {
+			UnsignedInt(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_signed_int(&self) -> bool {
+		match self {
+			SignedInt(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_floating_point(&self) -> bool {
+		match self {
+			FloatingPoint(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_int_vec2(&self) -> bool {
+		match self {
+			IVector2(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_float_vec2(&self) -> bool {
+		match self {
+			FVector2(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_int_vec3(&self) -> bool {
+		match self {
+			IVector3(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_float_vec3(&self) -> bool {
+		match self {
+			FVector3(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_int_vec4(&self) -> bool {
+		match self {
+			IVector4(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_float_vec4(&self) -> bool {
+		match self {
+			FVector4(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn is_log_severity(&self) -> bool {
+		match self {
+			LogSeverity(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn as_boolean_or(&self, default: bool) -> bool {
+		match self {
+			Boolean(value) => *value,
+			_ => default
+		}
+	}
+
+	pub fn as_string_or<'a>(&'a self, default: &'a String) -> &String {
+		match self {
+			Str(value) => value,
+			_ => default
+		}
+	}
+
+	pub fn as_str_or<'a>(&'a self, default: &'a str) -> &str {
+		match self {
+			Str(value) => value,
+			_ => default
+		}
+	}
+
+	pub fn as_unsigned_int_or(&self, default: u64) -> u64 {
+		match self {
+			UnsignedInt(value) => *value,
+			_ => default
+		}
+	}
+
+	pub fn as_signed_int_or(&self, default: i64) -> i64 {
+		match self {
+			SignedInt(value) => *value,
+			_ => default
+		}
+	}
+
+	pub fn as_int_vec2_or(&self, default: Vector2i) -> Vector2i {
+		match self {
+			IVector2(value) => *value,
+			_ => default
+		}
+	}
+
+	pub fn as_float_vec2_or(&self, default: Vector2f) -> Vector2f {
+		match self {
+			FVector2(value) => *value,
+			_ => default
+		}
+	}
+
+	pub fn as_int_vec3_or(&self, default: Vector3i) -> Vector3i {
+		match self {
+			IVector3(value) => *value,
+			_ => default
+		}
+	}
+
+	pub fn as_float_vec3_or(&self, default: Vector3f) -> Vector3f {
+		match self {
+			FVector3(value) => *value,
+			_ => default
+		}
+	}
+
+	pub fn as_int_vec4_or(&self, default: Vector4i) -> Vector4i {
+		match self {
+			IVector4(value) => *value,
+			_ => default
+		}
+	}
+
+	pub fn as_float_vec4_or(&self, default: Vector4f) -> Vector4f {
+		match self {
+			FVector4(value) => *value,
+			_ => default
+		}
+	}
+
+	pub fn as_log_severity_or(&self, default: Severity) -> Severity {
+		match self {
+			LogSeverity(value) => *value,
+			_ => default
+		}
+	}
+
+}
+
 pub struct GameSettings {
 	settings: RwLockHashMap<String, Setting>,
 }
@@ -29,49 +208,50 @@ pub struct GameSettings {
 impl GameSettings {
 
 	pub fn new() -> Self {
-		let new = Self {
+		let obj = Self {
 			settings: RwLock::new(HashMap::new()),
 		};
 
-		new.set("render.openAL", Boolean(true));
-		new.set("render.openGL", Boolean(true));
-		new.set("screen.resolution", IVector2(Vector2i::new(256, 256)));
-		new.set("render.resolution", IVector2(Vector2i::new(256, 256)));
-		new.set("handler.stopTimeout", UnsignedInt(10000)); // 10 s
-		new.set("assets.assetSheet", Str(String::from("/res/main.txt")));
-		new.set("assets.internalSheet", Str(String::from("/internal/internal_assets.txt")));
-		new.set("engine.useCurrentThreadAsPrimary", Boolean(false));
+		obj.set("render.openAL", Boolean(true));
+		obj.set("render.openGL", Boolean(true));
+		obj.set("screen.resolution", IVector2(Vector2i::new(1920, 1080))); // Preferred screen resolution
+		obj.set("render.resolution", IVector2(Vector2i::new(1920, 1080))); // Render target resolution
+		obj.set("handler.stopTimeout", UnsignedInt(10000)); // 10 s
+		obj.set("assets.assetSheet", Str(String::from("/res/main.txt")));
+		obj.set("assets.internalSheet", Str(String::from("/internal/internal_assets.txt")));
+		obj.set("engine.useCurrentThreadAsPrimary", Boolean(false));
 
 		// Game window
-		new.set("window.size", IVector2(Vector2i::new(256, 256)));
-		new.set("window.minimumSize", IVector2(Vector2i::new(100, 100)));
-		new.set("window.size", IVector2(Vector2i::new(256, 256)));
-		new.set("window.fullscreen", Boolean(false));
-		new.set("window.resizable", Boolean(true));
-		new.set("window.vsync", Boolean(true));
+		obj.set("window.size", IVector2(Vector2i::new(256, 256)));
+		obj.set("window.minimumSize", IVector2(Vector2i::new(100, 100)));
+		obj.set("window.maximumSize", IVector2(Vector2i::new(-1, -1))); // No max size
+		obj.set("window.fullscreen", Boolean(false));
+		obj.set("window.resizable", Boolean(true));
+		obj.set("window.maximized", Boolean(false));
+		obj.set("window.vsync", Boolean(true));
 
-		new.set("window.debugContext", Boolean(true));
+		obj.set("window.debugContext", Boolean(true));
 
-		new.set("window.title", Str(String::from("Spaghetti game")));
-		new.set("window.icon16", Str(String::from("/res/icon16.png")));
-		new.set("window.icon32", Str(String::from("/res/icon32.png")));
+		obj.set("window.title", Str(String::from("Spaghetti game")));
+		obj.set("window.icon16", Str(String::from("res/icon16.png")));
+		obj.set("window.icon32", Str(String::from("res/icon32.png")));
 
 		// Networking
-		new.set("online.port", UnsignedInt(9018));
-		new.set("online.bufferSize", UnsignedInt(1024 * 256)); // 256 KB
-		new.set("online.timeoutTime", UnsignedInt(500000));
-		new.set("online.verifyToken", Boolean(false));
-		new.set("online.maxClients", UnsignedInt(10));
-		new.set("online.maxDisconnections", UnsignedInt(10));
-		new.set("online.awaitTimeout", UnsignedInt(10000));
-		new.set("online.reconnectAttempts", UnsignedInt(10));
+		obj.set("online.port", UnsignedInt(9018));
+		obj.set("online.bufferSize", UnsignedInt(1024 * 256)); // 256 KB
+		obj.set("online.timeoutTime", UnsignedInt(500000));
+		obj.set("online.verifyToken", Boolean(false));
+		obj.set("online.maxClients", UnsignedInt(10));
+		obj.set("online.maxDisconnections", UnsignedInt(10));
+		obj.set("online.awaitTimeout", UnsignedInt(10000));
+		obj.set("online.reconnectAttempts", UnsignedInt(10));
 
 		// Logging
-		new.set("log.autoCreate", Boolean(true));
-		new.set("log.printSeverity", LogSeverity(INFO));
-		new.set("log.fileSeverity", LogSeverity(DEBUG));
+		obj.set("log.autoCreate", Boolean(true));
+		obj.set("log.printSeverity", LogSeverity(DEBUG));
+		obj.set("log.fileSeverity", LogSeverity(DEBUG));
 
-		new
+		obj
 	}
 
 	pub fn set(&self, setting_name: &str, value: Setting) {

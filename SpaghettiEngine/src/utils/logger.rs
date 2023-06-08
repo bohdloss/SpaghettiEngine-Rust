@@ -140,18 +140,12 @@ impl Logger {
             // Attempt to get the severity from the game settings
             if let Some(game) = self.game.upgrade() {
                 // Print severity
-                if let LogSeverity(print) = game.get_settings().get("log.printSeverity") {
-                    data.print_severity = print;
-                } else {
-                    data.print_severity = MIN_SEVERITY;
-                }
+                data.print_severity = game.get_settings().get("log.printSeverity")
+                    .as_log_severity_or(MIN_SEVERITY);
 
                 // File severity
-                if let LogSeverity(file) = game.get_settings().get("log.fileSeverity") {
-                    data.file_severity = file;
-                } else {
-                    data.file_severity = MIN_SEVERITY;
-                }
+                data.file_severity = game.get_settings().get("log.fileSeverity")
+                    .as_log_severity_or(MIN_SEVERITY);
             } else {
                 data.print_severity = MIN_SEVERITY;
                 data.file_severity = MIN_SEVERITY;
@@ -169,13 +163,11 @@ impl Logger {
                 // ...and we have a valid game pointer...
                 if let Some(game) = self.game.upgrade() {
 
-                    // ...and this engine setting exists...
-                    if let Boolean(create_log) = game.get_settings().get("log.autoCreate") {
+                    // ...and the option tells us to create the file
+                    if game.get_settings().get("log.autoCreate")
+                        .as_boolean_or(false) {
 
-                        // ...and the option tells us to create the file
-                        if create_log {
-                            self.create_log_file(&mut data);
-                        }
+                        self.create_log_file(&mut data);
                     }
                 }
                 data.create_attempt = true;

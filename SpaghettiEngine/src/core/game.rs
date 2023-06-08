@@ -6,6 +6,7 @@ use once_cell::sync::Lazy;
 use crate::events::event_dispatcher::EventDispatcher;
 use crate::settings::GameSettings;
 use crate::utils::Logger;
+use crate::world::client_state::ClientState;
 use crate::world::GameState;
 
 static GAMES: RwLock<Vec<sync::Weak<Game>>> = RwLock::new(Vec::new());
@@ -14,7 +15,8 @@ static LINKS: Lazy<RwLock<HashMap<ThreadId, sync::Weak<Game>>>> = Lazy::new(|| R
 pub struct Game {
 	event_dispatcher: EventDispatcher,
 	game_state: GameState,
-	game_settings: GameSettings,
+	client_state: ClientState,
+	game_settings: Arc<GameSettings>,
 	logger: Arc<Logger>,
 	is_client: bool
 }
