@@ -3,13 +3,12 @@ use std::io::{Stderr, Stdout, Write};
 use std::{fs, io, sync, thread};
 use std::error::Error;
 use std::fs::File;
-use std::ops::DerefMut;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 use chrono::{Datelike, Timelike, Utc};
 use once_cell::sync::Lazy;
 use crate::core::Game;
-use crate::settings::Setting::{Boolean, LogSeverity};
+use crate::settings::Setting::{LogSeverity};
 use crate::utils::logger::Severity::*;
 
 pub static GLOBAL_LOGGER: Lazy<Arc<Logger>> = Lazy::new(|| Logger::new(sync::Weak::new()));
@@ -64,6 +63,10 @@ impl LoggerData {
     }
 
 }
+
+// TODO print function with lambda
+
+// TODO use macros for print methods
 
 /// A logger allows you to print messages to stdout in a
 /// standardized way while also optionally logging them to a file

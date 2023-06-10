@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io;
 use std::io::{Error, ErrorKind, Read};
 use std::path::Path;
-use image::{DynamicImage, open, RgbaImage};
+use image::{DynamicImage};
 use crate::utils::Logger;
 
 pub fn path_to_bin(path: &Path) -> io::Result<Vec<u8>> {

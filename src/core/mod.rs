@@ -4,4 +4,4 @@ pub mod game_window;
 
 pub use thread_component::ThreadComponent;
 pub use game::Game;
-pub use game_window::GameWindow;
+pub use game_window::*;

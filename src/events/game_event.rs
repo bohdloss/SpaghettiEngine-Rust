@@ -4,15 +4,13 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::RwLock;
 use once_cell::sync::Lazy;
-use spaghetti_engine_derive::Id;
 use crate::events::game_event::EventSource::*;
+use crate::id_type;
 use crate::networking::replicate::Replicate;
 use crate::utils::as_any::AsAny;
 use crate::utils::types::*;
 
-#[derive(Id)]
-#[bits32]
-struct _EventId;
+id_type!(EventId);
 
 #[derive(Copy, Clone)]
 pub enum EventSource {

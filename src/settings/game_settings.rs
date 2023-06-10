@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
+use crate::core::game_window::VsyncMode;
 use crate::settings::Setting::*;
 use crate::utils::logger::Severity;
 use crate::utils::logger::Severity::*;
@@ -19,7 +20,8 @@ pub enum Setting {
 	FVector3(Vector3f),
 	IVector4(Vector4i),
 	FVector4(Vector4f),
-	LogSeverity(Severity)
+	LogSeverity(Severity),
+	Vsync(VsyncMode)
 }
 
 impl Setting {
@@ -115,6 +117,13 @@ impl Setting {
 		}
 	}
 
+	pub fn is_vsync_mode(&self) -> bool {
+		match self {
+			Vsync(_) => true,
+			_ => false
+		}
+	}
+
 	pub fn as_boolean_or(&self, default: bool) -> bool {
 		match self {
 			Boolean(value) => *value,
@@ -199,6 +208,13 @@ impl Setting {
 		}
 	}
 
+	pub fn as_vsync_mode_or(&self, default: VsyncMode) -> VsyncMode {
+		match self {
+			Vsync(value) => *value,
+			_ => default
+		}
+	}
+
 }
 
 pub struct GameSettings {
@@ -223,12 +239,13 @@ impl GameSettings {
 
 		// Game window
 		obj.set("window.size", IVector2(Vector2i::new(256, 256)));
-		obj.set("window.minimumSize", IVector2(Vector2i::new(100, 100)));
+		obj.set("window.minimumSize", IVector2(Vector2i::new(256, 256)));
 		obj.set("window.maximumSize", IVector2(Vector2i::new(-1, -1))); // No max size
 		obj.set("window.fullscreen", Boolean(false));
 		obj.set("window.resizable", Boolean(true));
 		obj.set("window.maximized", Boolean(false));
-		obj.set("window.vsync", Boolean(true));
+		obj.set("window.vsync", Vsync(VsyncMode::Enabled));
+		obj.set("window.transparent", Boolean(false));
 
 		obj.set("window.debugContext", Boolean(true));
 
@@ -269,4 +286,19 @@ impl GameSettings {
 		Empty
 	}
 
+}
+
+impl Clone for GameSettings {
+	fn clone(&self) -> Self {
+		let settings = Self::new();
+		{
+			// Lock settings
+			let mut other_map = settings.settings.write().unwrap();
+			let our_map = self.settings.read().unwrap();
+
+			// Copy settings
+			other_map.extend(our_map.iter().map(|(k, v)| (k.clone(), v.clone())));
+		}
+		settings
+	}
 }

@@ -2,11 +2,11 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex};
 use std::{sync};
 use std::hash::{Hasher};
-use spaghetti_engine_derive::Id;
 use crate::core::Game;
 use crate::events::event_listener::EventListener;
 use crate::events::EventSource::{Client, Server};
 use crate::events::{game_event, GameEvent};
+use crate::id_type;
 use crate::utils::types::*;
 
 pub struct EventDispatcher {
@@ -145,12 +145,6 @@ impl EventRequest {
 	}
 }
 
-// ListenerHandle
-#[derive(Id)]
-#[bits64]
-struct _ListenerHandle;
-
-// EventRequestHandle
-#[derive(Id)]
-#[bits64]
-struct _EventRequestHandle;
+// Handle types
+id_type!(ListenerHandle);
+id_type!(EventRequestHandle);

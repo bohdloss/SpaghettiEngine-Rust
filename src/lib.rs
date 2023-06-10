@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 pub mod core;
 pub mod demo;
 pub mod utils;

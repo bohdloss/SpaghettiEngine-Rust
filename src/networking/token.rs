@@ -1,5 +1,3 @@
-use spaghetti_engine_derive::Id;
+use crate::id_type;
 
-#[derive(Id)]
-#[bits64]
-struct _Token;
+id_type!(Token);
