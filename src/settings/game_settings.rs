@@ -230,7 +230,6 @@ impl GameSettings {
 
 		obj.set("render.openAL", Boolean(true));
 		obj.set("render.openGL", Boolean(true));
-		obj.set("screen.resolution", IVector2(Vector2i::new(1920, 1080))); // Preferred screen resolution
 		obj.set("render.resolution", IVector2(Vector2i::new(1920, 1080))); // Render target resolution
 		obj.set("handler.stopTimeout", UnsignedInt(10000)); // 10 s
 		obj.set("assets.assetSheet", Str(String::from("/res/main.txt")));
@@ -238,6 +237,8 @@ impl GameSettings {
 		obj.set("engine.useCurrentThreadAsPrimary", Boolean(false));
 
 		// Game window
+
+		obj.set("window.fullscreenResolution", IVector2(Vector2i::new(1920, 1080))); // Preferred fullscreen resolution
 		obj.set("window.size", IVector2(Vector2i::new(256, 256)));
 		obj.set("window.minimumSize", IVector2(Vector2i::new(256, 256)));
 		obj.set("window.maximumSize", IVector2(Vector2i::new(-1, -1))); // No max size

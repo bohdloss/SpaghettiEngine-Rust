@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use std::io::{Stderr, Stdout, Write};
+use std::io::{ErrorKind, Stderr, Stdout, Write};
 use std::{fs, io, sync, thread};
 use std::error::Error;
 use std::fs::File;
@@ -264,7 +264,7 @@ impl Logger {
         Ok(())
     }
 
-    fn do_write<T>(&self, device: &mut T, message_severity: Severity, message: &str, error: Option<&dyn Error>)
+    fn write_complete_prefix<T>(&self, device: &mut T, message_severity: Severity)
         -> io::Result<()>
         where T: Write {
         // Retrieve some data
@@ -283,14 +283,14 @@ impl Logger {
         }
 
         write!(device, "[{}/{}/{} {}:{}:{}.{}][{}",
-                 date.day(),
-                 date.month(),
-                 date.year(),
-                 date.hour(),
-                 date.minute(),
-                 date.second(),
-                 date.timestamp_subsec_millis(),
-                 if is_game {"GAME"} else {"GLOBAL"}
+               date.day(),
+               date.month(),
+               date.year(),
+               date.hour(),
+               date.minute(),
+               date.second(),
+               date.timestamp_subsec_millis(),
+               if is_game {"GAME"} else {"GLOBAL"}
         )?;
 
         if is_game {
@@ -298,21 +298,40 @@ impl Logger {
         }
 
         write!(device, "][{}][{}]",
-                thread_name,
-                message_severity
+               thread_name,
+               message_severity
         )?;
 
         self.write_prefix(device, 0)?;
 
-        writeln!(device, ": {}", message)?;
+        write!(device, ": ")
+    }
+
+    fn do_write<T>(&self, device: &mut T, message_severity: Severity, message: &str, error: Option<&dyn Error>)
+        -> io::Result<()>
+        where T: Write {
+
+        self.write_complete_prefix(device, message_severity)?;
+
+        writeln!(device, "{}", message)?;
 
         // Write errors
         if let Some(error) = error {
+            self.write_complete_prefix(device, message_severity)?;
             writeln!(device, "Error: {}", error)?;
+
             let mut source_option = error.source();
+            let mut depth: usize = 0;
             while let Some(source) = source_option {
+                if depth >= MAX_RECURSION_DEPTH {
+                    break;
+                }
+
+                self.write_complete_prefix(device, message_severity)?;
                 writeln!(device, "Caused by: {}", source)?;
                 source_option = source.source();
+
+                depth += 1;
             }
         }
 

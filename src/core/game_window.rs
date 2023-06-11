@@ -1,11 +1,14 @@
+use std::cmp::min;
 use std::fmt::{Display, Formatter};
 use std::io;
 use std::path::Path;
 use std::sync::{Arc};
 use std::sync::mpsc::Receiver;
 use glfw::{Callback, Context, Cursor, Error, ErrorCallback, Glfw, Monitor, SwapInterval, Window, WindowEvent, WindowHint, WindowMode};
+use glfw::ffi::glfwSetErrorCallback;
 use image::{RgbaImage};
 use crate::settings::GameSettings;
+use crate::settings::Setting::Str;
 use crate::utils::{file_util, Logger};
 use crate::utils::types::Vector2i;
 
@@ -78,13 +81,11 @@ impl GameWindow {
         // Get window settings
         let empty_string = "".to_string();
 
-        let window_size = settings.get("window.size")
+        let windowed_size = settings.get("window.size")
             .as_int_vec2_or(Vector2i::new(256, 256));
-
-        let mut size: (i32, i32) = (window_size.x, window_size.y);
 
         let min_size = settings.get("window.minimumSize")
-            .as_int_vec2_or(Vector2i::new(256, 256));
+            .as_int_vec2_or(Vector2i::new(64, 64));
 
         let max_size = settings.get("window.maximumSize")
             .as_int_vec2_or(Vector2i::new(-1, -1)); // Meaning no max size
@@ -107,11 +108,10 @@ impl GameWindow {
         let title = settings.get("window.title");
         let title = title.as_string_or(&empty_string);
 
-        let icon16 = settings.get("window.icon16");
-        let icon16 = icon16.as_string_or(&empty_string);
-
-        let icon32 = settings.get("window.icon32");
-        let icon32 = icon32.as_string_or(&empty_string);
+        let icon32 = if let Str(path) = settings.get("window.icon32")
+        { Some(path) } else { None };
+        let icon16 = if let Str(path) = settings.get("window.icon16")
+        { Some(path) } else { None };
 
         // Set window hints
         glfw.window_hint(WindowHint::Resizable(is_resizable));
@@ -120,21 +120,28 @@ impl GameWindow {
         glfw.window_hint(WindowHint::OpenGlDebugContext(is_debug_context));
         glfw.window_hint(WindowHint::TransparentFramebuffer(is_transparent));
 
+        // Get fullscreen info
         let primary_monitor = Monitor::from_primary();
-        let preferred_res = settings.get("screen.resolution")
+        let fullscreen_size = settings.get("window.fullscreenResolution")
             .as_int_vec2_or(Vector2i::new(1920, 1080));
 
+        // Determine window mode...
         let mode = if is_fullscreen {
-            let info = Self::calc_fullscreen_info(&primary_monitor,
-                                                  (preferred_res.x, preferred_res.y))?;
-
-            size = (info.1, info.2);
             WindowMode::FullScreen(&primary_monitor)
         } else {
             WindowMode::Windowed
         };
 
-        // Create window
+        // ...and size
+        let size = if is_fullscreen {
+            (if fullscreen_size.x > 0 { fullscreen_size.x } else { 1 },
+             if fullscreen_size.y > 0 { fullscreen_size.y } else { 1 })
+        } else {
+            (if windowed_size.x > 0 { windowed_size.x } else { 1 },
+             if windowed_size.y > 0 { windowed_size.y } else { 1 })
+        };
+
+        // Create glfw window
         let window;
         let receiver;
         match glfw.create_window(size.0 as u32, size.1 as u32, title, mode) {
@@ -148,31 +155,37 @@ impl GameWindow {
             }
         }
 
+        // Construct game window object
         let mut game_window = Self {
             glfw,
             window,
             receiver,
             title: title.clone(),
-            size_limits: (min_size.x, min_size.y, max_size.x, max_size.y),
+            size_limits: (0, 0, 0, 0),
             fullscreen: if let WindowMode::Windowed = mode { false } else { true },
-            saved_size: (window_size.x, window_size.y)
+            saved_size: (windowed_size.x, windowed_size.y)
         };
 
         // Apply some last settings
         game_window.set_size_limits((min_size.x, min_size.y, max_size.x, max_size.y));
 
-        let mut paths: Vec<&Path> = Vec::new();
-        paths.push(Path::new(&icon16));
-        paths.push(Path::new(&icon32));
+	    Logger::debug(&format!("{}, {}", size.0, size.1));
+        game_window.set_size(size);
 
-        game_window.set_icon_path(paths).unwrap_or(());
+        let mut paths: Vec<&Path> = Vec::new();
+        if let Some(path) = &icon16 {
+            paths.push(Path::new(path));
+        }
+        if let Some(path) = &icon32 {
+            paths.push(Path::new(path));
+        }
+
+	    if paths.len() > 0 {
+		    game_window.set_icon_path(paths).unwrap_or(());
+	    }
 
 
         Ok(game_window)
-    }
-
-    pub fn get_size(&self) -> (i32, i32) {
-        self.window.get_size()
     }
 
     pub fn is_resizable(&self) -> bool {
@@ -183,8 +196,14 @@ impl GameWindow {
         self.window.set_resizable(resizable);
     }
 
+    pub fn get_size(&self) -> (i32, i32) {
+        self.window.get_size()
+    }
+
     pub fn set_size(&mut self, size: (i32, i32)) {
-        self.window.set_size(size.0, size.1);
+
+        self.window.set_size(if size.0 > 0 { size.0 } else { 1 },
+                             if size.1 > 0 { size.1 } else { 1 });
     }
 
     pub fn is_visible(&self) -> bool {
@@ -229,11 +248,19 @@ impl GameWindow {
     }
 
     pub fn set_size_limits(&mut self, size_limits: (i32, i32, i32, i32)) {
-        self.size_limits = size_limits;
         self.window.set_size_limits(if size_limits.0 > 0 { Some(size_limits.0 as u32) } else { None },
                                if size_limits.1 > 0 { Some(size_limits.1 as u32) } else { None },
                                if size_limits.2 > 0 { Some(size_limits.2 as u32) } else { None },
                                if size_limits.3 > 0 { Some(size_limits.3 as u32) } else { None });
+
+        // Validate size limits
+        let min_valid = size_limits.0 > 0 && size_limits.1 > 0;
+        let max_valid = size_limits.2 > 0 && size_limits.3 > 0;
+
+        self.size_limits = (if min_valid { size_limits.0 } else { -1 },
+                            if min_valid { size_limits.1 } else { -1 },
+                            if max_valid { size_limits.2 } else { -1 },
+                            if max_valid { size_limits.3 } else { -1 });
     }
 
     pub fn swap(&mut self) {
@@ -249,10 +276,10 @@ impl GameWindow {
         self.glfw.set_swap_interval(mode);
     }
 
-    fn calc_fullscreen_info(monitor: &Monitor, preferred_res: (i32, i32)) -> WindowResult<(u32, i32, i32)> {
+    fn calc_fullscreen_info(monitor: &Monitor, preferred_res: (i32, i32)) -> WindowResult<(i32, i32, Option<u32>)> {
         // Get preferred resolution
         let mut actual: (i32, i32) = (preferred_res.0, preferred_res.1);
-        let mut refresh_rate: u32 = 60;
+        let mut refresh_rate: Option<u32> = None;
 
         // Search through available video modes for one with the preferred resolution
         let modes = monitor.get_video_modes();
@@ -260,7 +287,7 @@ impl GameWindow {
         for mode in modes.iter() {
             if mode.width as i32 == preferred_res.0 && mode.height as i32 == preferred_res.1 {
                 found = true;
-                refresh_rate = mode.refresh_rate;
+                refresh_rate = Some(mode.refresh_rate);
                 break;
             }
         }
@@ -269,14 +296,14 @@ impl GameWindow {
         if !found {
             if let Some(mode) = monitor.get_video_mode() {
                 actual = (mode.width as i32, mode.height as i32);
-                refresh_rate = mode.refresh_rate;
+                refresh_rate = Some(mode.refresh_rate);
             } else {
                 Logger::error("Couldn't find any suitable video mode when switching to fullscreen");
                 return Err(WindowError::NoVideoMode);
             }
         }
 
-        Ok((refresh_rate, actual.0, actual.1))
+        Ok((actual.0, actual.1, refresh_rate))
     }
 
     pub fn is_fullscreen(&self) -> bool {
@@ -298,9 +325,9 @@ impl GameWindow {
 
             let info = Self::calc_fullscreen_info(&monitor, preferred_res)?;
 
-            size = (info.1, info.2);
-            mode_size = (info.1, info.2);
-            mode_refresh_rate = Some(info.0);
+            size = (info.0, info.1);
+            mode_size = (info.0, info.1);
+            mode_refresh_rate = info.2;
             window_mode = WindowMode::FullScreen(&monitor);
         } else {
 
@@ -447,8 +474,16 @@ impl GameWindow {
         self.window.is_framebuffer_transparent()
     }
 
+    pub fn is_debug_context(&self) -> bool {
+        self.window.is_opengl_debug_context()
+    }
+
     pub fn poll_events(&mut self) {
         self.glfw.poll_events();
     }
+
+	pub fn get_framebuffer_size(&self) -> (i32, i32) {
+		self.window.get_framebuffer_size()
+	}
 
 }
