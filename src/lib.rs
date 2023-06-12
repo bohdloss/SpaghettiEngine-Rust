@@ -1,13 +1,13 @@
 #![allow(unused)]
 
 #[cfg(test)]
-mod test;
+mod tests;
 
 pub mod core;
-pub mod demo;
-pub mod utils;
-pub mod settings;
 pub mod events;
-pub mod networking;
-pub mod world;
+pub mod examples;
 pub mod input;
+pub mod networking;
+pub mod settings;
+pub mod utils;
+pub mod world;

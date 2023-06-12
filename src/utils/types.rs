@@ -1,9 +1,9 @@
+use cgmath::{Vector2, Vector3, Vector4};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
-use std::{rc, sync};
-use std::rc::{Rc};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex, RwLock};
-use cgmath::{Vector2, Vector3, Vector4};
+use std::{rc, sync};
 
 /*
 Used only to type less pointy brackets

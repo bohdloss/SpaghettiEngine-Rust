@@ -1,13 +1,13 @@
-use std::sync;
 use crate::core::Game;
+use std::sync;
 
 #[derive(Copy, Clone)]
 enum MouseEventType {
     ButtonChange,
     Move,
-    Scroll
+    Scroll,
 }
 
 pub struct InputDispatcher {
-    game: sync::Weak<Game>
+    game: sync::Weak<Game>,
 }

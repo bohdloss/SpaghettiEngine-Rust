@@ -1,2 +1,1 @@
-pub struct GameComponent {
-}
+pub struct GameComponent {}

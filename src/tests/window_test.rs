@@ -1,13 +1,20 @@
-use std::sync::Arc;
-use once_cell::sync::Lazy;
 use crate::core::*;
+use crate::log;
 use crate::settings::GameSettings;
 use crate::settings::Setting::*;
+use crate::utils::logger::Severity;
 use crate::utils::types::Vector2i;
+use crate::utils::Logger;
+use once_cell::sync::Lazy;
+use std::io::{stdout, Write};
+use std::sync::Arc;
 
 static DEFAULT_SETTINGS: Lazy<GameSettings> = Lazy::new(|| {
     let obj = GameSettings::new();
-    obj.set("window.fullscreenResolution", IVector2(Vector2i::new(1920, 1080)));
+    obj.set(
+        "window.fullscreenResolution",
+        IVector2(Vector2i::new(1920, 1080)),
+    );
     obj.set("window.size", IVector2(Vector2i::new(256, 256)));
     obj.set("window.minimumSize", IVector2(Vector2i::new(256, 256)));
     obj.set("window.maximumSize", IVector2(Vector2i::new(-1, -1))); // No max size
@@ -109,9 +116,7 @@ fn settings_clone() -> Arc<GameSettings> {
 
 fn init_window(settings: &Arc<GameSettings>) -> GameWindow {
     match GameWindow::new(settings) {
-        Ok(window) => {
-            window
-        },
+        Ok(window) => window,
         Err(error) => {
             panic!("{}", error);
         }

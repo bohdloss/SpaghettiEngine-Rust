@@ -1,9 +1,10 @@
+use crate::log;
+use crate::utils::Logger;
+use image::DynamicImage;
 use std::fs::File;
 use std::io;
 use std::io::{Error, ErrorKind, Read};
 use std::path::Path;
-use image::{DynamicImage};
-use crate::utils::Logger;
 
 pub fn path_to_bin(path: &Path) -> io::Result<Vec<u8>> {
     let current = std::env::current_dir()?;
@@ -37,11 +38,9 @@ pub fn absolute_path_to_image(path: &Path) -> io::Result<DynamicImage> {
 pub fn file_to_image(file: File) -> io::Result<DynamicImage> {
     let bytes = file_to_bin(file)?;
     match image::load_from_memory(&bytes) {
-        Ok(img) => {
-            Ok(img)
-        },
+        Ok(img) => Ok(img),
         Err(error) => {
-            Logger::warning_err("Error loading image", &error);
+            log!(Warning, &error, "Error loading image");
             Err(Error::from(ErrorKind::Other))
         }
     }
