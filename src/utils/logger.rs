@@ -68,6 +68,46 @@ macro_rules! log {
 	}};
 }
 
+#[macro_export]
+macro_rules! safe_print {
+    ($format:literal, $($arg:expr),*) => {
+         write!(io::stdout(), $format, $($arg),*).unwrap_or(());
+    };
+    ($format:literal) => {
+        write!(io::stdout(), $format).unwrap_or(());
+    }
+}
+
+#[macro_export]
+macro_rules! safe_println {
+    ($format:literal, $($arg:expr),*) => {
+         writeln!(io::stdout(), $format, $($arg),*).unwrap_or(());
+    };
+    ($format:literal) => {
+        writeln!(io::stdout(), $format).unwrap_or(());
+    }
+}
+
+#[macro_export]
+macro_rules! safe_eprint {
+    ($format:literal, $($arg:expr),*) => {
+         write!(io::stderr(), $format, $($arg),*).unwrap_or(());
+    };
+    ($format:literal) => {
+        write!(io::stderr(), $format).unwrap_or(());
+    }
+}
+
+#[macro_export]
+macro_rules! safe_eprintln {
+    ($format:literal, $($arg:expr),*) => {
+         writeln!(io::stderr(), $format, $($arg),*).unwrap_or(());
+    };
+    ($format:literal) => {
+        writeln!(io::stderr(), $format).unwrap_or(());
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, PartialOrd)]
 /// Represents the severity of a logger message,
 /// and it will be displayed and used to determine
@@ -240,11 +280,10 @@ impl Logger {
         match fs::create_dir_all("./logs") {
             Ok(_) => {}
             Err(error) => {
-                Self::safe_print(
-                    true,
+                safe_eprint!(
                     "Error while creating folder structure for log files: ",
                 );
-                Self::safe_println(true, Self::gen_error_str(&error).as_str());
+                safe_eprintln!("{}", Self::gen_error_str(&error).as_str());
                 return;
             }
         }
@@ -270,8 +309,8 @@ impl Logger {
             }
             Err(error) => {
                 data.log_file = None;
-                Self::safe_print(true, "Error while creating log file: ");
-                Self::safe_println(true, Self::gen_error_str(&error).as_str());
+                safe_eprint!("Error while creating log file: ");
+                safe_eprintln!("{}", Self::gen_error_str(&error).as_str());
             }
         }
     }
@@ -306,8 +345,8 @@ impl Logger {
                     // Write error, handle is probably dead, invalidate it
                     data.log_file = None;
 
-                    Self::safe_print(true, "Cannot write to log file: ");
-                    Self::safe_println(true, Self::gen_error_str(&error).as_str());
+                    safe_eprint!("Cannot write to log file: ");
+                    safe_eprintln!("{}", Self::gen_error_str(&error).as_str());
                 }
                 _ => {}
             }
@@ -541,41 +580,4 @@ impl Logger {
         Self::apply_to_current(|logger| logger.print_err(severity, message, error));
     }
 
-    /// Prints a message to standard output but will not panic in case
-    /// of an error (it will be ignored instead)
-    ///
-    /// # Arguments
-    /// * `error` - Whether to print the message to standard error or standard output
-    /// * `message` - The message to print
-    pub fn safe_print(error: bool, message: &str) {
-        enum Type {
-            Out(Stdout),
-            Err(Stderr),
-        }
-        impl Type {
-            fn as_writeable(&mut self) -> &mut dyn Write {
-                match self {
-                    Type::Err(err) => &mut *err,
-                    Type::Out(out) => &mut *out,
-                }
-            }
-        }
-        let mut device = if error {
-            Type::Err(io::stderr())
-        } else {
-            Type::Out(io::stdout())
-        };
-        write!(device.as_writeable(), "{}", message).unwrap_or(());
-    }
-
-    /// Prints a message to standard output and appends a newline character to it
-    /// but will not panic in case of an error (it will be ignored instead)
-    ///
-    /// # Arguments
-    /// * `error` - Whether to print the message to standard error or standard output
-    /// * `message` - The message to print
-    pub fn safe_println(error: bool, message: &str) {
-        Self::safe_print(error, message);
-        Self::safe_print(error, "\n");
-    }
 }

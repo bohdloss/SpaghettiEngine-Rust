@@ -8,6 +8,7 @@ use crate::utils::Logger;
 use once_cell::sync::Lazy;
 use std::io::{stdout, Write};
 use std::sync::Arc;
+use std::thread;
 
 static DEFAULT_SETTINGS: Lazy<GameSettings> = Lazy::new(|| {
     let obj = GameSettings::new();
@@ -21,7 +22,7 @@ static DEFAULT_SETTINGS: Lazy<GameSettings> = Lazy::new(|| {
     obj.set("window.fullscreen", Boolean(false));
     obj.set("window.resizable", Boolean(true));
     obj.set("window.maximized", Boolean(false));
-    obj.set("window.vsync", Vsync(VsyncMode::Enabled));
+    obj.set("window.vsync", Vsync(WindowVsyncMode::Enabled));
     obj.set("window.transparent", Boolean(false));
 
     obj.set("window.debugContext", Boolean(true));
@@ -108,6 +109,46 @@ fn window() {
         let window = init_window(&settings);
         assert_eq!(window.get_size(), (120, 300));
     }
+
+    // Window settings
+    let settings = settings_clone();
+    settings.set("window.transparent", Boolean(true));
+    let mut window = init_window(&settings);
+
+    window.set_fullscreen((1920, 1080));
+    assert!(window.is_fullscreen());
+
+    window.set_windowed();
+    assert!(!window.is_fullscreen());
+
+    window.set_size((534, 272));
+    assert_eq!(window.get_size(), (534, 272));
+
+    window.set_size_limits((12, 40, 900, 800));
+    assert_eq!(window.get_size_limits(), (12, 40, 900, 800));
+
+    window.set_decorated(false);
+    assert!(!window.is_decorated());
+
+    window.set_should_close(true);
+    assert!(window.should_close());
+
+    window.set_visible(false);
+    assert!(!window.is_visible());
+
+    window.set_opacity(0.3);
+    assert!((window.get_opacity() - 0.3).abs() < 0.1);
+
+    // This should create an error
+    thread::spawn(|| {
+        let settings = settings_clone();
+        match GameWindow::new(&settings) {
+            Ok(window) => panic!("Should've crashed"),
+            Err(_) => {}
+        };
+    })
+    .join()
+    .unwrap();
 }
 
 fn settings_clone() -> Arc<GameSettings> {

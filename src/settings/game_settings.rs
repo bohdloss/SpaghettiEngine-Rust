@@ -1,4 +1,4 @@
-use crate::core::game_window::VsyncMode;
+use crate::core::game_window::WindowVsyncMode;
 use crate::settings::Setting::*;
 use crate::utils::logger::Severity;
 use crate::utils::logger::Severity::*;
@@ -21,7 +21,7 @@ pub enum Setting {
     IVector4(Vector4i),
     FVector4(Vector4f),
     LogSeverity(Severity),
-    Vsync(VsyncMode),
+    Vsync(WindowVsyncMode),
 }
 
 impl Setting {
@@ -207,7 +207,7 @@ impl Setting {
         }
     }
 
-    pub fn as_vsync_mode_or(&self, default: VsyncMode) -> VsyncMode {
+    pub fn as_vsync_mode_or(&self, default: WindowVsyncMode) -> WindowVsyncMode {
         match self {
             Vsync(value) => *value,
             _ => default,
@@ -248,7 +248,7 @@ impl GameSettings {
         obj.set("window.fullscreen", Boolean(false));
         obj.set("window.resizable", Boolean(true));
         obj.set("window.maximized", Boolean(false));
-        obj.set("window.vsync", Vsync(VsyncMode::Enabled));
+        obj.set("window.vsync", Vsync(WindowVsyncMode::Enabled));
         obj.set("window.transparent", Boolean(false));
 
         obj.set("window.debugContext", Boolean(true));

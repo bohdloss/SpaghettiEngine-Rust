@@ -1,14 +1,15 @@
 use crate::log;
+use crate::utils::logger::Severity;
 use crate::utils::{logger, Logger};
 use std::error::Error;
-use std::fmt::{Display, Formatter};
+use std::fmt::{format, Display, Formatter};
 
 #[derive(Debug)]
 struct DummyError {}
 
 impl Display for DummyError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "This is dummy error message")
+        write!(f, "This is a dummy error message")
     }
 }
 
