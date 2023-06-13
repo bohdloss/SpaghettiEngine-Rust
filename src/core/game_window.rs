@@ -95,6 +95,13 @@ impl Display for WindowError {
     }
 }
 
+/// All the possible vsync settings
+///
+/// # Meaning
+///
+/// * `Disabled` - No vsync
+/// * `Enabled` - Vsync is enabled
+/// * `Adaptive` - Let the system decide
 #[derive(Eq, PartialEq, Copy, Clone)]
 pub enum WindowVsyncMode {
     Disabled,
@@ -102,11 +109,21 @@ pub enum WindowVsyncMode {
     Adaptive,
 }
 
+/// Represents a window monitor and provides
+/// some utility functions
 pub struct WindowMonitor<'a> {
     monitor: &'a mut Monitor,
 }
 
 impl<'a> WindowMonitor<'a> {
+    /// Allows you to iterate over monitors and perform
+    /// operations on them
+    ///
+    /// # Arguments
+    /// * `f` - The function to receive the monitor list
+    ///
+    /// # Returns
+    /// * Whatever `f` returns
     pub fn with_monitors<T, R>(mut f: T) -> WindowResult<R>
     where
         T: FnMut(Vec<WindowMonitor>) -> R,
@@ -122,6 +139,14 @@ impl<'a> WindowMonitor<'a> {
         })
     }
 
+    /// Allows you to perform operations on the primary monitor,
+    /// if it is present
+    ///
+    /// # Arguments
+    /// * `f` - The function to receive the monitor option
+    ///
+    /// # Returns
+    /// * Whatever `f` returns
     pub fn with_primary_monitor<T, R>(mut f: T) -> WindowResult<R>
     where
         T: FnMut(Option<WindowMonitor>) -> R,
@@ -134,6 +159,11 @@ impl<'a> WindowMonitor<'a> {
         })
     }
 
+    /// Returns a `WindowVideoMode` struct of the current video mode
+    /// in use by this monitor
+    ///
+    /// # Returns
+    /// * The current video mode, if it is present
     pub fn get_current_video_mode(&self) -> Option<WindowVideoMode> {
         match self.monitor.get_video_mode() {
             Some(mode) => Some(WindowVideoMode { mode }),
@@ -141,6 +171,10 @@ impl<'a> WindowMonitor<'a> {
         }
     }
 
+    /// Retrieves a list of all available video modes for this monitor
+    ///
+    /// # Returns
+    /// * A list of all the video modes as `WindowVideoMode` structs
     pub fn get_video_modes(&self) -> Vec<WindowVideoMode> {
         let raw = self.monitor.get_video_modes();
         let mut modes = Vec::with_capacity(raw.len());
@@ -150,46 +184,70 @@ impl<'a> WindowMonitor<'a> {
         modes
     }
 
+    /// # Returns
+    /// * The position of this monitor in the virtual workspace
     pub fn get_virtual_pos(&self) -> (i32, i32) {
         self.monitor.get_pos()
     }
 
+    /// # Returns
+    /// * The physical size of this monitor
     pub fn get_physical_size(&self) -> (i32, i32) {
         self.monitor.get_physical_size()
     }
 
+    /// # Returns
+    /// * The content scale of this monitor
     pub fn get_content_scale(&self) -> (f32, f32) {
         self.monitor.get_content_scale()
     }
 
+    /// Retrieves the work area of this monitor, meaning the region that is
+    /// not occupied by any menu bars or other ui elements
+    ///
+    /// # Returns
+    /// * The coordinates of the upmost and leftmost corner
+    /// * The width and height of the quad
     pub fn get_work_area(&self) -> (i32, i32, i32, i32) {
         self.monitor.get_workarea()
     }
 
+    /// # Returns
+    /// * A human readable name for this monitor
     pub fn get_name(&self) -> Option<String> {
         self.monitor.get_name()
     }
 
+    /// Allows you to set the gamma of this monitor
+    ///
+    /// # Arguments
+    /// * `gamma` - The new gamma
     pub fn set_gamma(&mut self, gamma: f32) {
         self.monitor.set_gamma(gamma);
     }
 }
 
+/// Represents a possible video mode for a monitor
 pub struct WindowVideoMode {
     mode: VidMode,
 }
 
 impl WindowVideoMode {
+    /// # Returns
+    /// * The size in pixels of this mode
     pub fn get_size(&self) -> (u32, u32) {
         (self.mode.width, self.mode.height)
     }
 
+    /// # Returns
+    /// * The refresh rate of this mode
     pub fn get_refresh_rate(&self) -> u32 {
         self.mode.refresh_rate
     }
 }
 
 #[derive(Debug)]
+/// Represents a window with graphics capabilities
 pub struct GameWindow {
     window: Window,
     receiver: Receiver<(f64, WindowEvent)>,
@@ -201,6 +259,10 @@ pub struct GameWindow {
 }
 
 impl GameWindow {
+    /// Creates a new window using the given settings
+    ///
+    /// # Returns
+    /// * If no errors occurs, the newly created window is returned
     pub fn new(settings: &Arc<GameSettings>) -> WindowResult<GameWindow> {
         // Get window settings
         let empty_string = "".to_string();
@@ -309,18 +371,32 @@ impl GameWindow {
         Ok(game_window)
     }
 
+    /// # Returns
+    /// * Whether or not the window is resizable
     pub fn is_resizable(&self) -> bool {
         self.window.is_resizable()
     }
 
+    /// Change whether or not the window is resizable
+    ///
+    /// # Arguments
+    /// * `resizable` - The new value
     pub fn set_resizable(&mut self, resizable: bool) {
         self.window.set_resizable(resizable);
     }
 
+    /// # Returns
+    /// * The size of the window in screen coordinates (not pixels!)
     pub fn get_size(&self) -> (i32, i32) {
         self.window.get_size()
     }
 
+    /// Change the size of the window.
+    /// An attempt is made to satisfy the given size, but it
+    /// will be made to fit given the size limits of the window.
+    ///
+    /// # Arguments
+    /// * `size` - The new size in screen coordinates (not pixels!)
     pub fn set_size(&mut self, size: (i32, i32)) {
         self.window.set_size(
             if size.0 > 0 { size.0 } else { 1 },
@@ -328,10 +404,16 @@ impl GameWindow {
         );
     }
 
+    /// # Returns
+    /// * Whether or not the window is visible
     pub fn is_visible(&self) -> bool {
         self.window.is_visible()
     }
 
+    /// Changes the visibility of the window
+    ///
+    /// # Arguments
+    /// * `visible` - The new visibility
     pub fn set_visible(&mut self, visible: bool) {
         if visible {
             self.window.show();
@@ -340,35 +422,59 @@ impl GameWindow {
         }
     }
 
+    /// # Returns
+    /// * Whether or not the close flag is true
     pub fn should_close(&self) -> bool {
         self.window.should_close()
     }
 
+    /// Changes the close flag
+    ///
+    /// # Arguments
+    /// * `should_close` - The new value
     pub fn set_should_close(&mut self, should_close: bool) {
         self.window.set_should_close(should_close);
     }
 
+    /// # Returns
+    /// * The title of the window
     pub fn get_title(&self) -> &String {
         &self.title
     }
 
+    /// Changes the title of the window
+    ///
+    /// # Arguments
+    /// * `title` - The new title
     pub fn set_title(&mut self, title: String) {
         self.title = title;
         self.window.set_title(&self.title);
     }
 
+    /// # Returns
+    /// * The position of the window in screen coordinates (not pixels!)
     pub fn get_position(&self) -> (i32, i32) {
         self.window.get_pos()
     }
 
+    /// Changes the position of the window
+    ///
+    /// # Arguments
+    /// * `position` - The new position in screen coordinates (not pixels!)
     pub fn set_position(&mut self, position: (i32, i32)) {
         self.window.set_pos(position.0, position.1);
     }
 
+    /// # Returns
+    /// * The last known size limits of the window in screen coordinates (not pixels!)
     pub fn get_size_limits(&self) -> (i32, i32, i32, i32) {
         self.size_limits
     }
 
+    /// Changes the size limits of the window
+    ///
+    /// # Arguments
+    /// * `size_limits` - The new size limits in screen coordinates (not pixels!)
     pub fn set_size_limits(&mut self, size_limits: (i32, i32, i32, i32)) {
         self.window.set_size_limits(
             if size_limits.0 > 0 {
@@ -405,10 +511,15 @@ impl GameWindow {
         );
     }
 
+    /// Swap the back and front buffers of the window
     pub fn swap(&mut self) {
         self.window.swap_buffers();
     }
 
+    /// Changes the vsync mode
+    ///
+    /// # Arguments
+    /// * `vsync` - The new vsync mode
     pub fn set_vsync(&mut self, vsync: WindowVsyncMode) -> WindowResult<()> {
         let mode = match vsync {
             WindowVsyncMode::Disabled => SwapInterval::None,
@@ -418,10 +529,20 @@ impl GameWindow {
         with_glfw(|glfw| glfw.set_swap_interval(mode))
     }
 
+    /// # Returns
+    /// * Whether the window is fullscreen or not
     pub fn is_fullscreen(&self) -> bool {
         self.fullscreen
     }
 
+    /// Sets the window in fullscreen mode on the monitor with the given index.
+    /// An attempt will be made to find the specified monitor, but if it is not found
+    /// this function falls back to `set_fullscreen_primary`
+    /// Please prefer iterating over monitors manually rather than using this function
+    ///
+    /// # Arguments
+    /// * `monitor_index` - The index of the monitor
+    /// * `preferred_res` - The preferred resolution
     pub fn set_fullscreen_index(&mut self, monitor_index: u64, preferred_res: (i32, i32)) {
         WindowMonitor::with_monitors(|monitors| {
             let monitor;
@@ -437,6 +558,12 @@ impl GameWindow {
         });
     }
 
+    /// Sets the window in fullscreen mode on the primary monitor.
+    /// An attempt is made to retrieve the primary monitor, but if is not found
+    /// this function returns without doing anything.
+    ///
+    /// # Arguments
+    /// * `preferred_res` - The preferred resolution
     pub fn set_fullscreen_primary(&mut self, preferred_res: (i32, i32)) {
         WindowMonitor::with_primary_monitor(|primary| {
             if let Some(primary) = primary {
@@ -445,11 +572,12 @@ impl GameWindow {
         });
     }
 
+    /// Sets the window in fullscreen mode on the given monitor.
+    ///
+    /// # Arguments
+    /// * `monitor` - The monitor
+    /// * `preferred_res` - The preferred resolution
     pub fn set_fullscreen_monitor(&mut self, monitor: &WindowMonitor, preferred_res: (i32, i32)) {
-        if self.fullscreen {
-            return;
-        }
-
         self.saved_size = self.window.get_size();
         self.saved_pos = self.window.get_pos();
 
@@ -464,6 +592,7 @@ impl GameWindow {
         self.fullscreen = true;
     }
 
+    /// Sets the window in windowed mode if it is not already so
     pub fn set_windowed(&mut self) {
         if !self.fullscreen {
             return;
@@ -481,10 +610,18 @@ impl GameWindow {
         self.fullscreen = false;
     }
 
+    /// Changes the icon of the window
+    ///
+    /// # Arguments
+    /// * `images` - A list of different resolution image representations of the icon
     pub fn set_icon(&mut self, images: Vec<RgbaImage>) {
         self.window.set_icon(images);
     }
 
+    /// Changes the icon of the window loading the images from the given paths
+    ///
+    /// # Arguments
+    /// * `paths` - The paths where the images are located relative to the working dir
     pub fn set_icon_path(&mut self, paths: Vec<&Path>) -> WindowResult<()> {
         let mut images: Vec<RgbaImage> = Vec::new();
         for path in paths.iter() {
@@ -502,6 +639,11 @@ impl GameWindow {
         Ok(())
     }
 
+    /// Changes the cursor of the window
+    ///
+    /// # Arguments
+    /// * `cursor` - The image of the new cursor. Size must be equal or lower than 256x256
+    /// * `center` - The coordinates of the center of the cursor relative to the image
     pub fn set_cursor(&mut self, cursor: RgbaImage, center: (u32, u32)) -> WindowResult<()> {
         // Cursor larger than this size create graphical glitches on X11
         let max_size = 256;
@@ -515,6 +657,11 @@ impl GameWindow {
         Ok(())
     }
 
+    /// Changes the cursor of the window, loading the image from the given path
+    ///
+    /// # Arguments
+    /// * `path` - The path where the image is located relative to the working dir
+    /// * `center` - The coordinates of the center of the cursor relative to the image
     pub fn set_cursor_path(&mut self, path: &Path, center: (u32, u32)) -> WindowResult<()> {
         match file_util::path_to_image(path) {
             Ok(img) => self.set_cursor(img.to_rgba8(), center),
@@ -525,34 +672,51 @@ impl GameWindow {
         }
     }
 
+    /// Resets the cursor to the system default
     pub fn reset_cursor(&mut self) {
         self.window.set_cursor(None);
     }
 
+    /// Makes the context of the window current for the calling thread
     pub fn make_context_current(&mut self) {
         self.window.make_current();
     }
 
+    /// # Returns
+    /// * Whether the window is focused or not
     pub fn is_focused(&self) -> bool {
         self.window.is_focused()
     }
 
+    /// Request focus on the window
     pub fn request_focus(&mut self) {
         self.window.focus();
     }
 
+    /// # Returns
+    /// * The opacity of the window
     pub fn get_opacity(&self) -> f32 {
         self.window.get_opacity()
     }
 
+    /// Changes the opacity of the window
+    ///
+    /// # Arguments
+    /// * `opacity` - The new opacity
     pub fn set_opacity(&mut self, opacity: f32) {
         self.window.set_opacity(opacity);
     }
 
+    /// # Returns
+    /// * Whether or not the window is iconified
     pub fn is_iconified(&self) -> bool {
         self.window.is_iconified()
     }
 
+    /// Reduces the window to an icon or restores it
+    ///
+    /// # Arguments
+    /// * `iconified` - Whether or not the window should be iconified after this call
     pub fn set_iconified(&mut self, iconified: bool) {
         if iconified {
             self.window.iconify();
@@ -561,10 +725,16 @@ impl GameWindow {
         }
     }
 
+    /// # Returns
+    /// * Whether or not the window is maximized
     pub fn is_maximized(&self) -> bool {
         self.window.is_maximized()
     }
 
+    /// Maximizes the window or restores it
+    ///
+    /// # Arguments
+    /// * `maximized` - Whether or not the window should be iconified after this call
     pub fn set_maximized(&mut self, maximized: bool) {
         if maximized {
             self.window.maximize();
@@ -573,30 +743,40 @@ impl GameWindow {
         }
     }
 
+    /// # Returns
+    /// * Whether or not this window is decorated (has an action bar / borders)
     pub fn is_decorated(&self) -> bool {
         self.window.is_decorated()
     }
 
+    /// Changes the decorated flag
+    ///
+    /// # Arguments
+    /// * `decorated` - Whether or not the window should be decorated
     pub fn set_decorated(&mut self, decorated: bool) {
         self.window.set_decorated(decorated);
     }
 
+    /// # Returns
+    /// * Whether or not the cursor is currently hovering the window
     pub fn is_hovered(&self) -> bool {
         self.window.is_hovered()
     }
 
+    /// # Returns
+    /// * Whether or not the window was created with a framebuffer that allows transparency
     pub fn is_transparent(&self) -> bool {
         self.window.is_framebuffer_transparent()
     }
 
+    /// # Returns
+    /// * Whether or not the window was created with a debug context
     pub fn is_debug_context(&self) -> bool {
         self.window.is_opengl_debug_context()
     }
 
-    pub fn poll_events(&mut self) -> WindowResult<()> {
-        with_glfw(|glfw| glfw.poll_events())
-    }
-
+    /// # Returns
+    /// * The size in pixels of the underlying framebuffer
     pub fn get_framebuffer_size(&self) -> (i32, i32) {
         self.window.get_framebuffer_size()
     }
