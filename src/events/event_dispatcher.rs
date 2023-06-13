@@ -2,7 +2,7 @@ use crate::core::Game;
 use crate::events::event_listener::EventListener;
 use crate::events::EventSource::{Client, Server};
 use crate::events::{game_event, GameEvent};
-use crate::id_type;
+use crate::utils::id_type::id_type;
 use crate::utils::types::*;
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hasher;

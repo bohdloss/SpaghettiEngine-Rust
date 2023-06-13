@@ -1,4 +1,3 @@
-#[macro_export]
 macro_rules! id_type {
     ($name:ident) => {
         pub struct $name {
@@ -54,4 +53,4 @@ macro_rules! id_type {
     };
 }
 
-pub use id_type;
+pub(crate) use id_type;

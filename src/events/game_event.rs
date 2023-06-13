@@ -1,7 +1,7 @@
 use crate::events::game_event::EventSource::*;
-use crate::id_type;
 use crate::networking::replicate::Replicate;
 use crate::utils::as_any::AsAny;
+use crate::utils::id_type::id_type;
 use crate::utils::types::*;
 use once_cell::sync::Lazy;
 use std::any::TypeId;

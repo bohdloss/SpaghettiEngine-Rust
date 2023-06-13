@@ -242,6 +242,7 @@ impl GameSettings {
             "window.fullscreenResolution",
             IVector2(Vector2i::new(1920, 1080)),
         ); // Preferred fullscreen resolution
+        obj.set("window.fullscreenMonitor", SignedInt(0));
         obj.set("window.size", IVector2(Vector2i::new(256, 256)));
         obj.set("window.minimumSize", IVector2(Vector2i::new(256, 256)));
         obj.set("window.maximumSize", IVector2(Vector2i::new(-1, -1))); // No max size

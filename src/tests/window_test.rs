@@ -16,6 +16,7 @@ static DEFAULT_SETTINGS: Lazy<GameSettings> = Lazy::new(|| {
         "window.fullscreenResolution",
         IVector2(Vector2i::new(1920, 1080)),
     );
+    obj.set("window.fullscreenMonitor", SignedInt(0));
     obj.set("window.size", IVector2(Vector2i::new(256, 256)));
     obj.set("window.minimumSize", IVector2(Vector2i::new(256, 256)));
     obj.set("window.maximumSize", IVector2(Vector2i::new(-1, -1))); // No max size
@@ -115,7 +116,7 @@ fn window() {
     settings.set("window.transparent", Boolean(true));
     let mut window = init_window(&settings);
 
-    window.set_fullscreen((1920, 1080));
+    window.set_fullscreen_primary((1920, 1080));
     assert!(window.is_fullscreen());
 
     window.set_windowed();
