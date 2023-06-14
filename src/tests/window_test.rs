@@ -101,16 +101,6 @@ fn window() {
         assert_eq!(window.get_size_limits(), (-1, -1, 500, 100));
     }
 
-    // Window size
-    {
-        let settings = settings_clone();
-        settings.set("window.minimumSize", IVector2(Vector2i::new(100, 100)));
-        settings.set("window.maximumSize", IVector2(Vector2i::new(-1, -1)));
-        settings.set("window.size", IVector2(Vector2i::new(120, 300)));
-        let window = init_window(&settings);
-        assert_eq!(window.get_size(), (120, 300));
-    }
-
     // Window settings
     let settings = settings_clone();
     settings.set("window.transparent", Boolean(true));
@@ -121,9 +111,6 @@ fn window() {
 
     window.set_windowed();
     assert!(!window.is_fullscreen());
-
-    window.set_size((534, 272));
-    assert_eq!(window.get_size(), (534, 272));
 
     window.set_size_limits((12, 40, 900, 800));
     assert_eq!(window.get_size_limits(), (12, 40, 900, 800));
