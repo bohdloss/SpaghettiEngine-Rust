@@ -1,4 +1,3 @@
-use crate::core::Game;
 use crate::input::controller::Controller;
 use crate::networking::token::Token;
 use crate::utils::types::*;
@@ -7,10 +6,8 @@ use crate::world::game_mode::GameMode;
 use crate::world::level::Level;
 use crate::world::{BeginEndPlay, Update};
 use std::collections::HashMap;
-use std::sync;
 
 pub struct GameState {
-    game: sync::Weak<Game>,
     game_mode: Box<dyn GameMode>,
     game_mode_initialized: bool,
     levels: HashMap<String, Level>,
@@ -45,9 +42,8 @@ impl Update for GameState {
 }
 
 impl GameState {
-    pub fn new(game: sync::Weak<Game>) -> Self {
+    pub fn new() -> Self {
         Self {
-            game,
             game_mode: Box::new(EmptyGameMode::new()),
             game_mode_initialized: false,
             levels: HashMap::new(),
@@ -76,7 +72,7 @@ impl GameState {
         if self.levels.contains_key(name) {
             return false;
         }
-        let level = Level::new(self.game.clone(), name.clone());
+        let level = Level::new(name.clone());
         self.levels.insert(name.clone(), level);
         self.needs_replication = true;
         return true;

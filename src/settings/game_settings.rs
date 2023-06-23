@@ -1,3 +1,4 @@
+#[cfg(feature = "window")]
 use crate::core::game_window::WindowVsyncMode;
 use crate::settings::Setting::*;
 use crate::utils::logger::Severity;
@@ -21,6 +22,7 @@ pub enum Setting {
     IVector4(Vector4i),
     FVector4(Vector4f),
     LogSeverity(Severity),
+    #[cfg(feature = "window")]
     Vsync(WindowVsyncMode),
 }
 
@@ -116,6 +118,7 @@ impl Setting {
         }
     }
 
+    #[cfg(feature = "window")]
     pub fn is_vsync_mode(&self) -> bool {
         match self {
             Vsync(_) => true,
@@ -207,6 +210,7 @@ impl Setting {
         }
     }
 
+    #[cfg(feature = "window")]
     pub fn as_vsync_mode_or(&self, default: WindowVsyncMode) -> WindowVsyncMode {
         match self {
             Vsync(value) => *value,
@@ -237,26 +241,28 @@ impl GameSettings {
         obj.set("engine.useCurrentThreadAsPrimary", Boolean(false));
 
         // Game window
+        #[cfg(feature = "window")]
+        {
+            obj.set(
+                "window.fullscreenResolution",
+                IVector2(Vector2i::new(1920, 1080)),
+            ); // Preferred fullscreen resolution
+            obj.set("window.fullscreenMonitor", SignedInt(0));
+            obj.set("window.size", IVector2(Vector2i::new(256, 256)));
+            obj.set("window.minimumSize", IVector2(Vector2i::new(256, 256)));
+            obj.set("window.maximumSize", IVector2(Vector2i::new(-1, -1))); // No max size
+            obj.set("window.fullscreen", Boolean(false));
+            obj.set("window.resizable", Boolean(true));
+            obj.set("window.maximized", Boolean(false));
+            obj.set("window.vsync", Vsync(WindowVsyncMode::Enabled));
+            obj.set("window.transparent", Boolean(false));
 
-        obj.set(
-            "window.fullscreenResolution",
-            IVector2(Vector2i::new(1920, 1080)),
-        ); // Preferred fullscreen resolution
-        obj.set("window.fullscreenMonitor", SignedInt(0));
-        obj.set("window.size", IVector2(Vector2i::new(256, 256)));
-        obj.set("window.minimumSize", IVector2(Vector2i::new(256, 256)));
-        obj.set("window.maximumSize", IVector2(Vector2i::new(-1, -1))); // No max size
-        obj.set("window.fullscreen", Boolean(false));
-        obj.set("window.resizable", Boolean(true));
-        obj.set("window.maximized", Boolean(false));
-        obj.set("window.vsync", Vsync(WindowVsyncMode::Enabled));
-        obj.set("window.transparent", Boolean(false));
+            obj.set("window.debugContext", Boolean(true));
 
-        obj.set("window.debugContext", Boolean(true));
-
-        obj.set("window.title", Str(String::from("Spaghetti game")));
-        obj.set("window.icon16", Str(String::from("res/icon16.png")));
-        obj.set("window.icon32", Str(String::from("res/icon32.png")));
+            obj.set("window.title", Str(String::from("Spaghetti game")));
+            obj.set("window.icon16", Str(String::from("res/icon16.png")));
+            obj.set("window.icon32", Str(String::from("res/icon32.png")));
+        }
 
         // Networking
         obj.set("online.port", UnsignedInt(9018));
@@ -270,7 +276,16 @@ impl GameSettings {
 
         // Logging
         obj.set("log.autoCreate", Boolean(true));
-        obj.set("log.printSeverity", LogSeverity(Debug));
+
+        obj.set(
+            "log.printSeverity",
+            if cfg!(debug_assertions) {
+                LogSeverity(Debug)
+            } else {
+                LogSeverity(Info)
+            },
+        );
+
         obj.set("log.fileSeverity", LogSeverity(Debug));
 
         obj

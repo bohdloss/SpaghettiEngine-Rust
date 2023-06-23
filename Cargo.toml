@@ -9,17 +9,14 @@ repository = "https://github.com/bohdloss/SpaghettiEngine-Rust"
 version = "0.1.0"
 edition = "2021"
 
-# For .dll or .so library file
-
-#[lib]
-#name = "spaghetti_engine"
-#crate-type = ["dylib"]
+[lib]
+crate-type = ["dylib", "rlib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-spaghetti-engine-derive = { path = "spaghetti-engine-derive" }
-
+ctor = "0.2.2" # Used for automagically registering game events / object types
+mopa = "0.2.2"
 chrono = "0.4.24"
 rand = "0.8.5"
 error-stack = "0.3.1"
@@ -29,6 +26,9 @@ lazy_static = "1.4.0"
 cgmath = "0.18.0"
 image = "0.24.6"
 
-glfw = { git = "https://github.com/bohdloss/glfw-rs", branch = "with-monitor-functions-mutable", features = ["image"] } # Window management (Optional)
+glfw = { git = "https://github.com/bohdloss/glfw-rs", branch = "with-monitor-functions-mutable", features = ["image"], optional = true } # Window management (Optional)
 glium = "0.32.1" # OpenGL
 alto = "3.0.4" # OpenAL
+
+[features]
+window = ["dep:glfw"]

@@ -1,3 +1,4 @@
+use crate::core::entry_point;
 use crate::core::entry_point::register_task;
 use crate::log;
 use crate::settings::GameSettings;
@@ -22,24 +23,55 @@ use std::{io, mem};
 
 static GLFW_INITIALIZED: Mutex<bool> = Mutex::new(false);
 
+struct GlfwContainer {
+    glfw: Option<Glfw>,
+    warned: bool,
+}
+
+impl GlfwContainer {
+    fn new_failure() -> Self {
+        Self {
+            glfw: None,
+            warned: true,
+        }
+    }
+
+    fn new_success(glfw: Glfw) -> Self {
+        Self {
+            glfw: Some(glfw),
+            warned: false,
+        }
+    }
+
+    fn was_warned(&mut self) -> bool {
+        mem::replace(&mut self.warned, true)
+    }
+}
+
 thread_local! {
-    static GLFW: RefCell<Option<Glfw>> = {
+    static GLFW: RefCell<GlfwContainer> = {
         // Check if already initialized
         let mut value = GLFW_INITIALIZED.lock().unwrap();
         let was_initialized = mem::replace(&mut *value, true);
         if was_initialized {
             log!(Warning, "Tried to initialize GLFW but it was already initialized in this process before");
-            return RefCell::new(None);
+            return RefCell::new(GlfwContainer::new_failure());
         }
+
+        entry_point::register_task(|| {
+            with_glfw(|glfw| {
+                glfw.poll_events();
+            });
+        });
 
         // Initialize glfw
         RefCell::new(match glfw::init(LOG_ERRORS) {
             Ok(glfw) => {
-                Some(glfw)
+                GlfwContainer::new_success(glfw)
             },
             Err(error) => {
                 log!(Fatal, &error, "Error initializing GLFW");
-                None
+                GlfwContainer::new_failure()
             }
         })
     };
@@ -49,17 +81,27 @@ fn with_glfw<T, R>(f: T) -> Result<R, WindowError>
 where
     T: FnOnce(&mut Glfw) -> R,
 {
-    GLFW.with(|cell| {
-        let mut option = cell.borrow_mut();
-        let glfw;
-        if let Some(glfw_) = option.deref_mut() {
-            glfw = glfw_;
-        } else {
-            log!(Fatal, "No GLFW instance in this thread. This could either mean that this is not the main thread, or that GLFW initialization failed");
-            return Err(WindowError::InternalError);
+    GLFW.with(|cell| match cell.try_borrow_mut() {
+        Ok(mut container) => match container.deref_mut().glfw {
+            Some(ref mut glfw) => Ok(f(glfw)),
+            None => {
+                if !container.was_warned() {
+                    log!(
+                        Fatal,
+                        "No GLFW instance in this thread. This could either mean that this is not the main thread, or that GLFW initialization failed"
+                    );
+                }
+                Err(WindowError::InternalError)
+            }
+        },
+        Err(error) => {
+            log!(
+                Fatal,
+                &error,
+                "Couldnt get a mutable reference to the glfw instance"
+            );
+            Err(WindowError::InternalError)
         }
-
-        Ok(f(glfw))
     })
 }
 
@@ -779,5 +821,12 @@ impl GameWindow {
     /// * The size in pixels of the underlying framebuffer
     pub fn get_framebuffer_size(&self) -> (i32, i32) {
         self.window.get_framebuffer_size()
+    }
+
+    /// Updates all windows
+    pub fn poll_events() {
+        with_glfw(|glfw| {
+            glfw.poll_events();
+        });
     }
 }

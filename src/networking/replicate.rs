@@ -1,9 +1,7 @@
 pub trait Replicate {
     // TODO ADD PARAMETERS
-    fn write_data_server(&self);
-    fn read_data_server(&self);
-    fn write_data_client(&self);
-    fn read_data_client(&self);
+    fn write_data(&self, is_client: bool);
+    fn read_data(&mut self, is_client: bool);
 
     fn needs_replication(&self) -> bool {
         true

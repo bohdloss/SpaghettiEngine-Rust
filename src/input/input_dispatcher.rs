@@ -1,5 +1,4 @@
-use crate::core::Game;
-use std::sync;
+use crate::input::{GamePad, GamePadAxis, Keyboard, KeyboardMods, Mouse};
 
 #[derive(Copy, Clone)]
 enum MouseEventType {
@@ -8,6 +7,14 @@ enum MouseEventType {
     Scroll,
 }
 
+// TODO BUY A PS4 / XBOX CONTROLLER AND TEST INPUTS
+
 pub struct InputDispatcher {
-    game: sync::Weak<Game>,
+    pub keyboard_state: [bool; Keyboard::size()],
+    pub keyboard_mods_state: [bool; KeyboardMods::size()],
+    pub mouse_state: [bool; Mouse::size()],
+    pub game_pad_state: [bool; GamePad::size()],
+    pub game_pad_axis_state: [f32; GamePadAxis::size()],
 }
+
+impl InputDispatcher {}

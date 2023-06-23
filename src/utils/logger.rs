@@ -6,7 +6,7 @@ use once_cell::sync::Lazy;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::io::{ErrorKind, Stderr, Stdout, Write};
+use std::io::Write;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::{fs, io, sync, thread};
@@ -154,10 +154,6 @@ impl LoggerData {
     }
 }
 
-// TODO print function with lambda
-
-// TODO use macros for print methods
-
 /// A logger allows you to print messages to stdout in a
 /// standardized way while also optionally logging them to a file
 ///
@@ -280,9 +276,7 @@ impl Logger {
         match fs::create_dir_all("./logs") {
             Ok(_) => {}
             Err(error) => {
-                safe_eprint!(
-                    "Error while creating folder structure for log files: ",
-                );
+                safe_eprint!("Error while creating folder structure for log files: ");
                 safe_eprintln!("{}", Self::gen_error_str(&error).as_str());
                 return;
             }
@@ -465,7 +459,7 @@ impl Logger {
         err_str
     }
 
-    fn apply_to_current<F>(mut function: F)
+    fn apply_to_current<F>(function: F)
     where
         F: FnOnce(Arc<Logger>),
     {
@@ -579,5 +573,4 @@ impl Logger {
     {
         Self::apply_to_current(|logger| logger.print_err(severity, message, error));
     }
-
 }

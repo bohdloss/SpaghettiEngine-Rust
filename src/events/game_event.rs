@@ -1,18 +1,13 @@
+use crate::events::event_registry::EventType;
 use crate::events::game_event::EventSource::*;
 use crate::networking::replicate::Replicate;
-use crate::utils::as_any::AsAny;
 use crate::utils::id_type::id_type;
-use crate::utils::types::*;
-use once_cell::sync::Lazy;
-use std::any::TypeId;
-use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
-use std::sync::RwLock;
+use mopa::mopafy;
+use std::hash::Hasher;
 
 id_type!(EventId);
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum EventSource {
     NotSet,
     Client,
@@ -54,70 +49,24 @@ impl EventData {
     }
 }
 
-pub trait GameEvent: Send + AsAny {
+pub trait GameEvent: mopa::Any + Send {
     fn get_event_data(&self) -> &EventData;
     fn get_event_data_mut(&mut self) -> &mut EventData;
-    fn get_event_type(&self) -> u64;
+    fn get_event_type(&self) -> EventType;
 }
 
+mopafy!(GameEvent);
+
 impl<T: GameEvent> Replicate for T {
-    fn write_data_server(&self) {
+    fn write_data(&self, _: bool) {
         unimplemented!();
     }
 
-    fn read_data_server(&self) {
-        unimplemented!();
-    }
-
-    fn write_data_client(&self) {
-        unimplemented!();
-    }
-
-    fn read_data_client(&self) {
+    fn read_data(&mut self, _: bool) {
         unimplemented!();
     }
 
     fn is_local(&self) -> bool {
         true
-    }
-}
-
-pub type EventConstructor = fn() -> Box<dyn GameEvent>;
-
-static EVENT_TABLE: Lazy<RwLockHashMap<u64, EventConstructor>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
-static TYPE_ASSOCIATION_TABLE: Lazy<RwLockHashMap<TypeId, u64>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
-
-pub fn register_event_type<T: GameEvent + 'static>(constructor: EventConstructor) -> u64 {
-    let mut event_table = EVENT_TABLE.write().unwrap();
-
-    // Generate an id for the event
-    let mut hasher = DefaultHasher::new();
-    stringify!(T).hash(&mut hasher);
-    let id = hasher.finish();
-
-    // Add to the table
-    event_table.insert(id, constructor);
-
-    // Register to type association table
-    let mut association_table = TYPE_ASSOCIATION_TABLE.write().unwrap();
-    association_table.insert(TypeId::of::<T>(), id);
-    id
-}
-
-pub fn get_event_constructor(event_type: u64) -> Option<EventConstructor> {
-    let event_table = EVENT_TABLE.read().unwrap();
-    match event_table.get(&event_type) {
-        Some(func) => Some(*func),
-        None => None,
-    }
-}
-
-pub fn get_event_type<T: GameEvent + 'static>() -> Option<u64> {
-    let association_table = TYPE_ASSOCIATION_TABLE.read().unwrap();
-    match association_table.get(&TypeId::of::<T>()) {
-        Some(id) => Some(*id),
-        None => None,
     }
 }

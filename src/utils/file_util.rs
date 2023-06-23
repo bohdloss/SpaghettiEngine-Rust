@@ -1,5 +1,4 @@
 use crate::log;
-use crate::utils::Logger;
 use image::DynamicImage;
 use std::fs::File;
 use std::io;

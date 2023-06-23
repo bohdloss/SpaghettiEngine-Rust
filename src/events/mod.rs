@@ -1,5 +1,6 @@
 pub mod event_dispatcher;
 pub mod event_listener;
+pub mod event_registry;
 pub mod game_event;
 pub mod nothing_happened_event;
 

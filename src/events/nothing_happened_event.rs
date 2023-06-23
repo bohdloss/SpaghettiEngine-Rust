@@ -1,7 +1,5 @@
-use crate::events::game_event;
 use crate::events::game_event::*;
-use crate::utils::AsAny;
-use spaghetti_engine_derive::{AsAny, GameEvent};
+use crate::register_game_event;
 
 /// ░░░░░▄▄▄▄▀▀▀▀▀▀▀▀▄▄▄▄▄▄░░░░░░░░<br>
 /// ░░░░░█░░░░▒▒▒▒▒▒▒▒▒▒▒▒░░▀▀▄░░░░<br>
@@ -18,21 +16,16 @@ use spaghetti_engine_derive::{AsAny, GameEvent};
 /// ░░░░░░░▀▄▄░▒▒▒▒░░░░░░░░░░▒░░░█░<br>
 /// ░░░░░░░░░░▀▀▄▄░▒▒▒▒▒▒▒▒▒▒░░░░█░<br>
 /// ░░░░░░░░░░░░░░▀▄▄▄▄▄░░░░░░░░█░░<br>
-#[derive(GameEvent, AsAny)]
 pub struct NothingHappenedEvent {
     event_data: EventData,
 }
 
-impl NothingHappenedEvent {
-    pub fn new_empty() -> Self {
-        Self {
-            event_data: EventData::new(),
-        }
-    }
+register_game_event!(NothingHappenedEvent, data -> event_data, new -> new_empty);
 
-    pub fn new() -> Self {
-        Self {
+impl NothingHappenedEvent {
+    pub fn new_empty() -> Box<dyn GameEvent> {
+        Box::new(Self {
             event_data: EventData::new(),
-        }
+        })
     }
 }

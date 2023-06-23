@@ -1,54 +1,52 @@
-use crate::core::Game;
 use crate::events::event_listener::EventListener;
+use crate::events::event_registry::EventType;
 use crate::events::EventSource::{Client, Server};
-use crate::events::{game_event, GameEvent};
+use crate::events::{event_registry, GameEvent};
 use crate::utils::id_type::id_type;
 use crate::utils::types::*;
 use std::collections::{HashMap, VecDeque};
 use std::hash::Hasher;
-use std::sync;
 use std::sync::Mutex;
 
 pub struct EventDispatcher {
-    game: sync::Weak<Game>,
+    is_client: bool,
     events: MutexVecDeque<EventRequest>,
-    listeners: MutexHashMap<u64, Vec<ListenerEntry>>,
+    listeners: MutexHashMap<EventType, Vec<ListenerEntry>>,
 }
 
 impl EventDispatcher {
-    pub fn new(game: sync::Weak<Game>) -> Self {
+    pub fn new(is_client: bool) -> Self {
         Self {
-            game,
+            is_client,
             events: Mutex::new(VecDeque::new()),
             listeners: Mutex::new(HashMap::new()),
         }
     }
 
     pub fn raise_event(&self, mut event: Box<dyn GameEvent>, is_async: bool) {
-        if let Some(game) = self.game.upgrade() {
-            // Set the origin of the event
-            event
-                .get_event_data_mut()
-                .set_from(if game.is_client() { Client } else { Server });
+        // Set the origin of the event
+        event
+            .get_event_data_mut()
+            .set_from(if self.is_client { Client } else { Server });
 
-            // Construct request
-            let request = EventRequest::new(event);
-            let request_id = request.request_id.clone();
+        // Construct request
+        let request = EventRequest::new(event);
+        let request_id = request.request_id.clone();
 
-            // Send the request
-            self.events.lock().unwrap().push_back(request);
+        // Send the request
+        self.events.lock().unwrap().push_back(request);
 
-            // If async wait for completion
-            let mut processing = is_async;
-            while processing {
-                let contains = self
-                    .events
-                    .lock()
-                    .unwrap()
-                    .iter()
-                    .position(|x| x.request_id == request_id);
+        // If async wait for completion
+        while is_async {
+            let contains = self
+                .events
+                .lock()
+                .unwrap()
+                .iter()
+                .position(|x| x.request_id == request_id);
 
-                processing = contains.is_some();
+            if contains.is_none() {
+                break;
             }
         }
     }
@@ -57,12 +55,10 @@ impl EventDispatcher {
         let listener_map = self.listeners.lock().unwrap();
 
         // Are there any listeners for this event type?
-        if let Some(list) = listener_map.get(&request.event_type) {
+        if let Some(list) = listener_map.get(&request.event.get_event_type()) {
             // Iterate over them and trigger them
             for listener_entry in list.iter() {
-                listener_entry
-                    .listener
-                    .handle_event(self.game.clone(), &mut request.event);
+                listener_entry.listener.handle_event(&mut request.event);
             }
         }
     }
@@ -80,7 +76,7 @@ impl EventDispatcher {
     ) -> Option<ListenerHandle> {
         let entry = ListenerEntry::new(listener);
         let entry_id = entry.entry_id.clone();
-        let event_type = game_event::get_event_type::<T>();
+        let event_type = event_registry::get_event_type_of::<T>();
 
         // Couldn't find that event type.
         // Should never happen unless the event type was not registered
@@ -119,6 +115,7 @@ struct ListenerEntry {
     listener: Box<dyn EventListener>,
     entry_id: ListenerHandle,
 }
+
 impl ListenerEntry {
     fn new(listener: Box<dyn EventListener>) -> Self {
         Self {
@@ -131,16 +128,13 @@ impl ListenerEntry {
 // EventRequest
 struct EventRequest {
     event: Box<dyn GameEvent>,
-    event_type: u64,
     request_id: EventRequestHandle,
 }
 
 impl EventRequest {
     fn new(event: Box<dyn GameEvent>) -> Self {
-        let event_type = event.get_event_type();
         Self {
             event,
-            event_type,
             request_id: EventRequestHandle::new(),
         }
     }

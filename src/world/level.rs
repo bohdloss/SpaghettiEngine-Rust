@@ -1,9 +1,8 @@
-use crate::core::Game;
 use crate::utils::types::float;
 use crate::world::{BeginEndPlay, BeginError, Update};
-use std::sync;
 
 pub struct Level {
+    name: String,
     pub(super) active: bool,
 }
 
@@ -20,8 +19,11 @@ impl BeginEndPlay for Level {
 }
 
 impl Level {
-    pub fn new(game: sync::Weak<Game>, name: String) -> Self {
-        Self { active: false }
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            active: false,
+        }
     }
 
     pub fn is_active(&self) -> bool {

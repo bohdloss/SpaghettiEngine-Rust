@@ -1,10 +1,10 @@
 use crate::core::*;
-use crate::log;
 use crate::settings::GameSettings;
 use crate::settings::Setting::*;
 use crate::utils::logger::Severity;
 use crate::utils::types::Vector2i;
 use crate::utils::Logger;
+use crate::{log, spaghetti_debug_entry_point};
 use once_cell::sync::Lazy;
 use std::io::{stdout, Write};
 use std::sync::Arc;
@@ -36,7 +36,6 @@ static DEFAULT_SETTINGS: Lazy<GameSettings> = Lazy::new(|| {
 });
 
 // Has to be done in a single thread because of glfw limitations
-#[test]
 fn window() {
     // Default settings
     {
@@ -137,6 +136,20 @@ fn window() {
     })
     .join()
     .unwrap();
+}
+
+#[test]
+fn window_integration() {
+    spaghetti_debug_entry_point!(|| {
+        let settings = settings_clone();
+        let mut window = init_window(&settings);
+        window.make_context_current();
+        window.set_visible(true);
+
+        while !window.should_close() {
+            window.swap();
+        }
+    });
 }
 
 fn settings_clone() -> Arc<GameSettings> {
