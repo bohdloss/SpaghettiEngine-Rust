@@ -36,16 +36,16 @@ impl EventDispatcher {
         // Send the request
         self.events.lock().unwrap().push_back(request);
 
-        // If async wait for completion
-        while is_async {
-            let contains = self
+        // If not async wait for completion
+        while !is_async {
+            if self
                 .events
                 .lock()
                 .unwrap()
                 .iter()
-                .position(|x| x.request_id == request_id);
-
-            if contains.is_none() {
+                .position(|x| x.request_id == request_id)
+                .is_none()
+            {
                 break;
             }
         }
