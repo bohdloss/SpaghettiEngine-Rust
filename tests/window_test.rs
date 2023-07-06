@@ -1,12 +1,9 @@
-use crate::core::*;
-use crate::settings::GameSettings;
-use crate::settings::Setting::*;
-use crate::utils::logger::Severity;
-use crate::utils::types::Vector2i;
-use crate::utils::Logger;
-use crate::{log, spaghetti_debug_entry_point};
 use once_cell::sync::Lazy;
-use std::io::{stdout, Write};
+use spaghetti_engine::settings::GameSettings;
+use spaghetti_engine::settings::Setting::*;
+use spaghetti_engine::{spaghetti_debug_entry_point, log};
+use spaghetti_engine::utils::types::Vector2i;
+use spaghetti_engine::window::{GameWindow, VsyncMode, WindowMonitor};
 use std::sync::Arc;
 use std::thread;
 
@@ -23,7 +20,7 @@ static DEFAULT_SETTINGS: Lazy<GameSettings> = Lazy::new(|| {
     obj.set("window.fullscreen", Boolean(false));
     obj.set("window.resizable", Boolean(true));
     obj.set("window.maximized", Boolean(false));
-    obj.set("window.vsync", Vsync(WindowVsyncMode::Enabled));
+    obj.set("window.vsync", Vsync(VsyncMode::Enabled));
     obj.set("window.transparent", Boolean(false));
 
     obj.set("window.debugContext", Boolean(true));
@@ -130,7 +127,7 @@ fn window() {
     thread::spawn(|| {
         let settings = settings_clone();
         match GameWindow::new(&settings) {
-            Ok(window) => panic!("Should've crashed"),
+            Ok(_) => panic!("Should've crashed"),
             Err(_) => {}
         };
     })
@@ -145,6 +142,14 @@ fn window_integration() {
         let mut window = init_window(&settings);
         window.make_context_current();
         window.set_visible(true);
+
+        let _ = WindowMonitor::with_monitors(|monitors| {
+            for monitor in monitors.iter() {
+                if let Some(name) = monitor.get_name() {
+                    log!(Info, "Monitor name: {}", name);
+                }
+            }
+        });
 
         while !window.should_close() {
             window.swap();

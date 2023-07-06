@@ -8,9 +8,10 @@ use std::sync::RwLock;
 
 #[macro_export]
 macro_rules! register_game_event {
-    ($name:ty, data -> $event_data:ident, new -> $constructor:ident) => {
+    ($name:ident, data -> $event_data:ident, new -> $constructor:ident) => {
         #[ctor::ctor]
-        fn register_event() {
+        #[allow(non_snake_case)]
+        fn $name() {
             $crate::events::event_registry::register_event_type::<$name>(<$name>::$constructor);
         }
 
@@ -23,10 +24,7 @@ macro_rules! register_game_event {
             }
             fn get_event_type(&self) -> $crate::events::event_registry::EventType {
                 let id = $crate::events::event_registry::get_event_type_of::<$name>();
-                if let Some(the_id) = id {
-                    return the_id;
-                }
-                unreachable!()
+                id.unwrap()
             }
         }
     };
@@ -37,6 +35,7 @@ id_type!(EventType);
 pub struct EventTypeMetadata {
     pub constructor: fn() -> Box<dyn GameEvent>,
     pub event_type: EventType,
+    pub type_id: TypeId,
     pub name: String,
 }
 
@@ -55,6 +54,7 @@ where
     let data = EventTypeMetadata {
         constructor,
         event_type: id,
+        type_id: TypeId::of::<T>(),
         name: std::any::type_name::<T>().to_string(),
     };
 

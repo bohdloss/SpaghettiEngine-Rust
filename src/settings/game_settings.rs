@@ -1,9 +1,9 @@
-#[cfg(feature = "window")]
-use crate::core::game_window::WindowVsyncMode;
 use crate::settings::Setting::*;
 use crate::utils::logger::Severity;
 use crate::utils::logger::Severity::*;
 use crate::utils::types::*;
+#[cfg(feature = "window")]
+use crate::window::VsyncMode;
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -23,7 +23,7 @@ pub enum Setting {
     FVector4(Vector4f),
     LogSeverity(Severity),
     #[cfg(feature = "window")]
-    Vsync(WindowVsyncMode),
+    Vsync(VsyncMode),
 }
 
 impl Setting {
@@ -211,7 +211,7 @@ impl Setting {
     }
 
     #[cfg(feature = "window")]
-    pub fn as_vsync_mode_or(&self, default: WindowVsyncMode) -> WindowVsyncMode {
+    pub fn as_vsync_mode_or(&self, default: VsyncMode) -> VsyncMode {
         match self {
             Vsync(value) => *value,
             _ => default,
@@ -254,7 +254,7 @@ impl GameSettings {
             obj.set("window.fullscreen", Boolean(false));
             obj.set("window.resizable", Boolean(true));
             obj.set("window.maximized", Boolean(false));
-            obj.set("window.vsync", Vsync(WindowVsyncMode::Enabled));
+            obj.set("window.vsync", Vsync(VsyncMode::Enabled));
             obj.set("window.transparent", Boolean(false));
 
             obj.set("window.debugContext", Boolean(true));

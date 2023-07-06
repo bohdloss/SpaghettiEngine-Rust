@@ -1,8 +1,7 @@
 use crate::log;
-use crate::utils::logger::Severity;
 use crate::utils::{logger, Logger};
 use std::error::Error;
-use std::fmt::{format, Display, Formatter};
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 struct DummyError {}

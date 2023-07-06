@@ -1,5 +1,8 @@
-#[derive(Copy, Clone)]
-pub enum GamePad {
+use std::mem;
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
+pub enum GamePadButton {
     Cross,
     Circle,
     Square,
@@ -15,20 +18,32 @@ pub enum GamePad {
     DPadRight,
     DPadDown,
     DPadLeft,
-    Last,
+    Unknown,
 }
 
-impl GamePad {
+impl GamePadButton {
+    pub const FIRST: GamePadButton = GamePadButton::Cross;
+    pub const LAST: GamePadButton = GamePadButton::DPadLeft;
+
+    pub fn from_usize(idx: usize) -> Self {
+        if idx < Self::size() {
+            unsafe { mem::transmute(idx as u8) }
+        } else {
+            Self::Unknown
+        }
+    }
+
     pub const fn index(&self) -> usize {
         *self as usize
     }
 
     pub const fn size() -> usize {
-        Self::Last.index()
+        Self::LAST.index() + 1
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
 pub enum GamePadAxis {
     LeftX,
     LeftY,
@@ -36,15 +51,26 @@ pub enum GamePadAxis {
     RightY,
     LeftTrigger,
     RightTrigger,
-    Last,
+    Unknown,
 }
 
 impl GamePadAxis {
+    pub const FIRST: GamePadAxis = GamePadAxis::LeftX;
+    pub const LAST: GamePadAxis = GamePadAxis::RightTrigger;
+
+    pub fn from_usize(idx: usize) -> Self {
+        if idx < Self::size() {
+            unsafe { mem::transmute(idx as u8) }
+        } else {
+            Self::Unknown
+        }
+    }
+
     pub const fn index(&self) -> usize {
         *self as usize
     }
 
     pub const fn size() -> usize {
-        Self::Last.index()
+        Self::LAST.index() + 1
     }
 }

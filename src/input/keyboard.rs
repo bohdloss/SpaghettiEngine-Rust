@@ -1,5 +1,8 @@
-#[derive(Copy, Clone)]
-pub enum Keyboard {
+use std::mem;
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+#[repr(u8)]
+pub enum Key {
     Space,
     Apostrophe,
     Comma,
@@ -120,36 +123,26 @@ pub enum Keyboard {
     RightAlt,
     RightSuper,
     Menu,
-    Last,
+    Unknown,
 }
 
-impl Keyboard {
+impl Key {
+    pub const FIRST: Key = Key::Space;
+    pub const LAST: Key = Key::Menu;
+
+    pub fn from_usize(idx: usize) -> Self {
+        if idx < Self::size() {
+            unsafe { mem::transmute(idx as u8) }
+        } else {
+            Self::Unknown
+        }
+    }
+
     pub const fn index(&self) -> usize {
         *self as usize
     }
 
     pub const fn size() -> usize {
-        Self::Last.index()
-    }
-}
-
-#[derive(Copy, Clone)]
-pub enum KeyboardMods {
-    Shift,
-    Control,
-    Alt,
-    Super,
-    CapsLock,
-    NumLock,
-    Last
-}
-
-impl KeyboardMods {
-    pub const fn index(&self) -> usize {
-        *self as usize
-    }
-
-    pub const fn size() -> usize {
-        Self::Last.index()
+        Self::LAST.index() + 1
     }
 }

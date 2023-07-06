@@ -25,10 +25,12 @@ once_cell = "1.17.1"
 lazy_static = "1.4.0"
 cgmath = "0.18.0"
 image = "0.24.6"
+genawaiter = "0.99.1"
 
-glfw = { git = "https://github.com/bohdloss/glfw-rs", branch = "with-monitor-functions-mutable", features = ["image"], optional = true } # Window management (Optional)
+glfw = { git = "https://github.com/bohdloss/glfw-rs", branch = "temp-merged", features = ["image"], optional = true } # Window management (Optional)
 glium = "0.32.1" # OpenGL
 alto = "3.0.4" # OpenAL
 
 [features]
+test_features = ["window"]
 window = ["dep:glfw"]
