@@ -699,10 +699,15 @@ impl GameWindow {
         .unwrap()
     }
 
+    /// Registers this window as an input device, sending its input events to the
+    /// provided `InputDispatcher`.
+    /// Calling this function repeatedly with a different `InputDispatcher` will
+    /// override the previous.
     pub fn register_input_device(&mut self, dispatcher: sync::Weak<InputDispatcher>) {
         register_input(self.window_pipe.as_ref(), dispatcher);
     }
 
+    /// Reverts the effects of [`GameWindow::register_input_device`]
     pub fn unregister_input_device(&mut self) {
         unregister_input(self.window_pipe.as_ref());
     }
