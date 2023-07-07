@@ -1,14 +1,14 @@
 use crate::events::{EventData, GameEvent};
 use crate::register_game_event;
 
-pub struct GamePadConnectedEvent {
+pub struct GamePadConnectEvent {
     data: EventData,
     pub game_pad_id: usize,
 }
 
-register_game_event!(GamePadConnectedEvent, data -> data, new -> new_empty);
+register_game_event!(GamePadConnectEvent, data -> data, new -> new_empty);
 
-impl GamePadConnectedEvent {
+impl GamePadConnectEvent {
     pub fn new_empty() -> Box<dyn GameEvent> {
         Box::new(Self {
             data: EventData::new(),
@@ -24,14 +24,14 @@ impl GamePadConnectedEvent {
     }
 }
 
-pub struct GamePadDisconnectedEvent {
+pub struct GamePadDisconnectEvent {
     data: EventData,
     pub game_pad_id: usize,
 }
 
-register_game_event!(GamePadDisconnectedEvent, data -> data, new -> new_empty);
+register_game_event!(GamePadDisconnectEvent, data -> data, new -> new_empty);
 
-impl GamePadDisconnectedEvent {
+impl GamePadDisconnectEvent {
     pub fn new_empty() -> Box<dyn GameEvent> {
         Box::new(Self {
             data: EventData::new(),

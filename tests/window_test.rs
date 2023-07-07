@@ -1,9 +1,9 @@
 use once_cell::sync::Lazy;
 use spaghetti_engine::settings::GameSettings;
 use spaghetti_engine::settings::Setting::*;
-use spaghetti_engine::{spaghetti_debug_entry_point, log};
 use spaghetti_engine::utils::types::Vector2i;
 use spaghetti_engine::window::{GameWindow, VsyncMode, WindowMonitor};
+use spaghetti_engine::{log, spaghetti_debug_entry_point};
 use std::sync::Arc;
 use std::thread;
 
@@ -33,109 +33,113 @@ static DEFAULT_SETTINGS: Lazy<GameSettings> = Lazy::new(|| {
 });
 
 // Has to be done in a single thread because of glfw limitations
+#[test]
 fn window() {
     // Default settings
-    {
-        let settings = settings_clone();
-        init_window(&settings);
-    }
+    spaghetti_debug_entry_point!(|| {
+        {
+            let settings = settings_clone();
+            init_window(&settings);
+        }
 
-    // Fullscreen
-    {
-        let settings = settings_clone();
-        settings.set("window.fullscreen", Boolean(true));
-        init_window(&settings);
-    }
+        // Fullscreen
+        {
+            let settings = settings_clone();
+            settings.set("window.fullscreen", Boolean(true));
+            init_window(&settings);
+        }
 
-    // Maximized
-    {
-        let settings = settings_clone();
-        settings.set("window.maximized", Boolean(true));
-        let window = init_window(&settings);
-        assert!(window.is_maximized());
-    }
+        // Maximized
+        {
+            let settings = settings_clone();
+            settings.set("window.maximized", Boolean(true));
+            let window = init_window(&settings);
+            assert!(window.is_maximized());
+        }
 
-    // Resizable
-    {
-        let settings = settings_clone();
-        settings.set("window.resizable", Boolean(false));
-        let window = init_window(&settings);
-        assert!(!window.is_resizable());
-    }
+        // Resizable
+        {
+            let settings = settings_clone();
+            settings.set("window.resizable", Boolean(false));
+            let window = init_window(&settings);
+            assert!(!window.is_resizable());
+        }
 
-    // Debug context
-    {
-        let settings = settings_clone();
-        settings.set("window.debugContext", Boolean(true));
-        let window = init_window(&settings);
-        assert!(window.is_debug_context());
-    }
+        // Debug context
+        {
+            let settings = settings_clone();
+            settings.set("window.debugContext", Boolean(true));
+            let window = init_window(&settings);
+            assert!(window.is_debug_context());
+        }
 
-    // Transparency
-    {
-        let settings = settings_clone();
-        settings.set("window.transparent", Boolean(true));
-        let window = init_window(&settings);
-        assert!(window.is_transparent());
-    }
+        // Transparency
+        {
+            let settings = settings_clone();
+            settings.set("window.transparent", Boolean(true));
+            let window = init_window(&settings);
+            assert!(window.is_transparent());
+        }
 
-    // Window size limits (positive)
-    {
-        let settings = settings_clone();
-        settings.set("window.minimumSize", IVector2(Vector2i::new(100, 100)));
-        settings.set("window.maximumSize", IVector2(Vector2i::new(500, 500)));
-        let window = init_window(&settings);
-        assert_eq!(window.get_size_limits(), (100, 100, 500, 500));
-    }
+        // Window size limits (positive)
+        {
+            let settings = settings_clone();
+            settings.set("window.minimumSize", IVector2(Vector2i::new(100, 100)));
+            settings.set("window.maximumSize", IVector2(Vector2i::new(500, 500)));
+            let window = init_window(&settings);
+            assert_eq!(window.get_size_limits(), (100, 100, 500, 500));
+        }
 
-    // Window size limits (negative)
-    {
-        let settings = settings_clone();
-        settings.set("window.minimumSize", IVector2(Vector2i::new(-4, 100)));
-        settings.set("window.maximumSize", IVector2(Vector2i::new(500, 100)));
-        let window = init_window(&settings);
-        assert_eq!(window.get_size_limits(), (-1, -1, 500, 100));
-    }
+        // Window size limits (negative)
+        {
+            let settings = settings_clone();
+            settings.set("window.minimumSize", IVector2(Vector2i::new(-4, 100)));
+            settings.set("window.maximumSize", IVector2(Vector2i::new(500, 100)));
+            let window = init_window(&settings);
+            assert_eq!(window.get_size_limits(), (-1, -1, 500, 100));
+        }
+    });
 
     // Window settings
-    let settings = settings_clone();
-    settings.set("window.transparent", Boolean(true));
-    let mut window = init_window(&settings);
-
-    window.set_fullscreen_primary((1920, 1080));
-    assert!(window.is_fullscreen());
-
-    window.set_windowed();
-    assert!(!window.is_fullscreen());
-
-    window.set_size_limits((12, 40, 900, 800));
-    assert_eq!(window.get_size_limits(), (12, 40, 900, 800));
-
-    window.set_decorated(false);
-    assert!(!window.is_decorated());
-
-    window.set_should_close(true);
-    assert!(window.should_close());
-
-    window.set_visible(false);
-    assert!(!window.is_visible());
-
-    window.set_opacity(0.3);
-    assert!((window.get_opacity() - 0.3).abs() < 0.1);
-
-    // This should create an error
-    thread::spawn(|| {
+    spaghetti_debug_entry_point!(|| {
         let settings = settings_clone();
-        match GameWindow::new(&settings) {
-            Ok(_) => panic!("Should've crashed"),
-            Err(_) => {}
-        };
-    })
-    .join()
-    .unwrap();
+        settings.set("window.transparent", Boolean(true));
+        let mut window = init_window(&settings);
+
+        let _ = window.set_fullscreen_primary((1920, 1080));
+        assert!(window.is_fullscreen());
+
+        window.set_windowed();
+        assert!(!window.is_fullscreen());
+
+        window.set_size_limits((12, 40, 900, 800));
+        assert_eq!(window.get_size_limits(), (12, 40, 900, 800));
+
+        window.set_decorated(false);
+        assert!(!window.is_decorated());
+
+        window.set_should_close(true);
+        assert!(window.should_close());
+
+        window.set_visible(false);
+        assert!(!window.is_visible());
+
+        window.set_opacity(0.3);
+        assert!((window.get_opacity() - 0.3).abs() < 0.1);
+
+        // This should not create an error anymore!
+        thread::spawn(|| {
+            let settings = settings_clone();
+            match GameWindow::new(&settings) {
+                Ok(_) => {}
+                Err(_) => panic!("Should've succeeded"),
+            };
+        })
+        .join()
+        .unwrap();
+    });
 }
 
-#[test]
 fn window_integration() {
     spaghetti_debug_entry_point!(|| {
         let settings = settings_clone();

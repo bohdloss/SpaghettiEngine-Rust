@@ -1,5 +1,5 @@
 use crate::core::{entry_point, Game};
-use crate::input::game_pad_events::{GamePadConnectedEvent, GamePadDisconnectedEvent};
+use crate::input::game_pad_events::{GamePadConnectEvent, GamePadDisconnectEvent};
 use crate::input::input_dispatcher::NUM_GAME_PADS;
 use crate::input::mouse::MouseAxis;
 use crate::input::InputDispatcher;
@@ -515,10 +515,10 @@ fn initialize_glfw() {
                             let index = joystick as usize;
                             if let JoystickEvent::Connected = event {
                                 game.get_event_dispatcher()
-                                    .raise_event(GamePadConnectedEvent::new(index), true);
+                                    .raise_event(GamePadConnectEvent::new(index), true);
                             } else {
                                 game.get_event_dispatcher()
-                                    .raise_event(GamePadDisconnectedEvent::new(index), true);
+                                    .raise_event(GamePadDisconnectEvent::new(index), true);
                             }
                         }
                     });

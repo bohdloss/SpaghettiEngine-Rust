@@ -1,10 +1,10 @@
 use crate::utils::id_type::id_type;
 use once_cell::sync::Lazy;
-use std::collections::{HashMap};
-use std::sync::{Mutex};
-use std::{mem, thread};
+use std::collections::HashMap;
 use std::ffi::c_void;
+use std::sync::Mutex;
 use std::time::Duration;
+use std::{mem, thread};
 
 struct Void {
     _ptr: *const c_void,
@@ -48,14 +48,13 @@ pub fn unregister_task(handle: TaskHandle) {
 pub fn send_event<T, R>(event: T) -> R
 where
     T: FnOnce() -> R + Send + Sync + 'static,
-    R: Send + Sync + 'static
+    R: Send + Sync + 'static,
 {
     let id = EventHandle::new();
-    EVENT_LIST.lock().unwrap().insert(id, Box::new(|| {
-        unsafe {
-            mem::transmute(Box::new(event()))
-        }
-    }));
+    EVENT_LIST.lock().unwrap().insert(
+        id,
+        Box::new(|| unsafe { mem::transmute(Box::new(event())) }),
+    );
 
     while !EVENT_RETURN.lock().unwrap().contains_key(&id) {
         thread::sleep(SLEEP_DURATION);
@@ -76,7 +75,9 @@ where
 }
 
 pub fn register_shutdown_event<T>(f: T)
-where T: FnOnce() + Send + Sync + 'static {
+where
+    T: FnOnce() + Send + Sync + 'static,
+{
     SHUTDOWN_EVENT_LIST.lock().unwrap().push(Box::new(f));
 }
 
@@ -114,6 +115,7 @@ where
         do_loop_body();
     }
     shutdown();
+    thread.join().unwrap();
 }
 
 pub fn debug_entry_point<T, F>(thread_body: T, loop_condition: F)
@@ -129,6 +131,7 @@ where
         do_loop_body();
     }
     shutdown();
+    thread.join().unwrap();
 }
 
 fn do_loop_body() {
@@ -144,14 +147,12 @@ fn do_loop_body() {
             }
 
             match handle {
-                Some(id) => {
-                    match events.remove(&id) {
-                        Some(event) => {
-                            let result = event();
-                            EVENT_RETURN.lock().unwrap().insert(id, result);
-                        },
-                        None => {}
+                Some(id) => match events.remove(&id) {
+                    Some(event) => {
+                        let result = event();
+                        EVENT_RETURN.lock().unwrap().insert(id, result);
                     }
+                    None => {}
                 },
                 None => {}
             }
@@ -179,7 +180,7 @@ fn shutdown() {
             Some(id) => {
                 let event = events.remove(id);
                 event();
-            },
+            }
             None => {}
         }
     }
