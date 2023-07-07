@@ -113,17 +113,35 @@ impl InputDispatcher {
         }
 
         // Mouse position / wheel update
-        for (i, &new_val) in self.mouse_state().axis.iter().enumerate() {
-            let new_val = new_val;
-            let old_state = self.old_mouse_state();
-            if new_val != old_state.axis[i] {
-                old_state.axis[i] = new_val;
+        let new_state = &mut self.mouse_state().axis;
+        let old_state = &mut self.old_mouse_state().axis;
 
-                self.with_all_listeners(|listener| {
-                    listener.mouse_axis_changed(MouseAxis::from_usize(i), new_val.0, new_val.1)
-                });
-            }
+        let position_index = MouseAxis::Position.index();
+        let wheel_index = MouseAxis::Wheel.index();
+
+        if new_state[position_index] != old_state[position_index] {
+            old_state[position_index] = new_state[position_index];
+
+            self.with_all_listeners(|listener| {
+                listener.mouse_axis_changed(
+                    MouseAxis::Position,
+                    new_state[position_index].0,
+                    new_state[position_index].1,
+                )
+            });
         }
+
+        // TODO Better scroll handling
+
+        let new_scroll_val = new_state[wheel_index];
+        if new_scroll_val != old_state[wheel_index] {
+            old_state[wheel_index] = new_scroll_val;
+
+            self.with_all_listeners(|listener| {
+                listener.mouse_axis_changed(MouseAxis::Wheel, new_scroll_val.0, new_scroll_val.1)
+            });
+        }
+        new_state[wheel_index] = (0.0, 0.0);
 
         // Must iterate over all game pads and...
         for game_pad_index in 0..NUM_GAME_PADS {
@@ -202,14 +220,14 @@ impl InputDispatcher {
         }
     }
 
-    pub fn register_listener(&mut self, listener: Box<dyn InputListener>) -> ListenerHandle {
+    pub fn register_listener(&self, listener: Box<dyn InputListener>) -> ListenerHandle {
         let mut list = self.listeners.lock().unwrap();
         let id = ListenerHandle::new();
         list.insert(id, listener);
         id
     }
 
-    pub fn unregister_listener(&mut self, handle: ListenerHandle) {
+    pub fn unregister_listener(&self, handle: ListenerHandle) {
         self.listeners.lock().unwrap().remove(&handle);
     }
 }

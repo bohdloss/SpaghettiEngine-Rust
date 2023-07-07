@@ -1,6 +1,13 @@
+use std::fmt::{Debug, Display, Formatter};
 use std::mem;
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+impl Display for Key {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(self, f)
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(u8)]
 pub enum Key {
     Space,
