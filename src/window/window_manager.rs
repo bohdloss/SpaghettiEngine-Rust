@@ -2,7 +2,7 @@ use crate::core::{entry_point, Game};
 use crate::input::game_pad_events::{GamePadConnectEvent, GamePadDisconnectEvent};
 use crate::input::input_dispatcher::NUM_GAME_PADS;
 use crate::input::mouse::MouseAxis;
-use crate::input::InputDispatcher;
+use crate::input::{GamePadAxis, InputDispatcher};
 use crate::log;
 use crate::utils::new_empty::NewEmpty;
 use crate::utils::request_pipe::RequestPipe;
@@ -154,12 +154,10 @@ fn handle_input_update(glfw: &mut Glfw, entry: &mut WindowEntry, dispatcher: &In
                 _ => {}
             },
             WindowEvent::CursorPos(x, y) => {
-                mouse_state.axis[MouseAxis::X.index()] = x;
-                mouse_state.axis[MouseAxis::Y.index()] = y;
+                mouse_state.axis[MouseAxis::Position.index()] = (x, y);
             }
             WindowEvent::Scroll(x, y) => {
-                mouse_state.axis[MouseAxis::WheelX.index()] = x;
-                mouse_state.axis[MouseAxis::WheelY.index()] = y;
+                mouse_state.axis[MouseAxis::Wheel.index()] = (x, y);
             }
             _ => {}
         }
@@ -190,11 +188,20 @@ fn handle_game_pad_input(glfw: &mut Glfw, dispatcher: &InputDispatcher, index: u
             }
         }
     }
-    for axis in 0..ffi::GAMEPAD_AXIS_LAST {
-        if let Some(axis) = GamepadAxis::from_i32(axis as i32) {
-            game_pad_state.axis[from_game_pad_axis(axis).index()] = game_pad.get_axis(axis) as f64;
-        }
-    }
+
+    game_pad_state.axis[GamePadAxis::LeftThumbStick.index()] = (
+        game_pad.get_axis(GamepadAxis::AxisLeftX) as f64,
+        game_pad.get_axis(GamepadAxis::AxisLeftY) as f64,
+    );
+
+    game_pad_state.axis[GamePadAxis::RightThumbStick.index()] = (
+        game_pad.get_axis(GamepadAxis::AxisRightX) as f64,
+        game_pad.get_axis(GamepadAxis::AxisRightY) as f64,
+    );
+    game_pad_state.axis[GamePadAxis::LeftRightTriggers.index()] = (
+        game_pad.get_axis(GamepadAxis::AxisLeftTrigger) as f64,
+        game_pad.get_axis(GamepadAxis::AxisRightTrigger) as f64,
+    );
 }
 
 fn handle_window_request(pipe: &RequestPipe<WindowPacket>, window: &mut Window) {
@@ -511,7 +518,7 @@ fn initialize_glfw() {
                         glfw::get_version_string()
                     );
                     glfw.set_joystick_callback(|joystick, event| {
-                        if let Some(game) = Game::get_instance().upgrade() {
+                        Game::with_all_instances(|game| {
                             let index = joystick as usize;
                             if let JoystickEvent::Connected = event {
                                 game.get_event_dispatcher()
@@ -520,7 +527,7 @@ fn initialize_glfw() {
                                 game.get_event_dispatcher()
                                     .raise_event(GamePadDisconnectEvent::new(index), true);
                             }
-                        }
+                        });
                     });
                     GlfwContainer::new_success(glfw)
                 }

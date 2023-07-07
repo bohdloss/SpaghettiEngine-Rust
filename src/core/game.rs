@@ -31,6 +31,18 @@ impl Game {
         }
     }
 
+    pub fn with_all_instances<T>(f: T)
+    where
+        T: Fn(&Game),
+    {
+        let games = GAMES.read().unwrap();
+        for game in games.iter() {
+            if let Some(game) = game.upgrade() {
+                f(game.as_ref());
+            }
+        }
+    }
+
     pub fn get_event_dispatcher(&self) -> &EventDispatcher {
         &self.event_dispatcher
     }

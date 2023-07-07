@@ -38,16 +38,14 @@ impl MouseButton {
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum MouseAxis {
-    X,
-    Y,
-    WheelX,
-    WheelY,
+    Position,
+    Wheel,
     Unknown,
 }
 
 impl MouseAxis {
-    pub const FIRST: MouseAxis = MouseAxis::X;
-    pub const LAST: MouseAxis = MouseAxis::WheelY;
+    pub const FIRST: MouseAxis = MouseAxis::Position;
+    pub const LAST: MouseAxis = MouseAxis::Wheel;
 
     pub fn from_usize(idx: usize) -> Self {
         if idx < Self::size() {

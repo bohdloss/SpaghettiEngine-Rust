@@ -45,18 +45,15 @@ impl GamePadButton {
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum GamePadAxis {
-    LeftX,
-    LeftY,
-    RightX,
-    RightY,
-    LeftTrigger,
-    RightTrigger,
+    LeftThumbStick,
+    RightThumbStick,
+    LeftRightTriggers,
     Unknown,
 }
 
 impl GamePadAxis {
-    pub const FIRST: GamePadAxis = GamePadAxis::LeftX;
-    pub const LAST: GamePadAxis = GamePadAxis::RightTrigger;
+    pub const FIRST: GamePadAxis = GamePadAxis::LeftThumbStick;
+    pub const LAST: GamePadAxis = GamePadAxis::LeftRightTriggers;
 
     pub fn from_usize(idx: usize) -> Self {
         if idx < Self::size() {

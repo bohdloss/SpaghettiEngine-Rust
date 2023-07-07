@@ -1,9 +1,8 @@
 use crate::input;
-use crate::input::GamePadAxis::*;
 use crate::input::GamePadButton::*;
 use crate::input::Key::*;
 use crate::input::MouseButton::*;
-use glfw::{GamepadAxis, GamepadButton, JoystickId, Key, MouseButton};
+use glfw::{GamepadButton, JoystickId, Key, MouseButton};
 
 pub(super) fn from_key(key: glfw::Key) -> input::Key {
     match key {
@@ -161,17 +160,6 @@ pub(super) fn from_game_pad_button(game_pad_button: glfw::GamepadButton) -> inpu
         GamepadButton::ButtonDpadRight => DPadRight,
         GamepadButton::ButtonDpadDown => DPadDown,
         GamepadButton::ButtonDpadLeft => DPadLeft,
-    }
-}
-
-pub(super) fn from_game_pad_axis(game_pad_axis: glfw::GamepadAxis) -> input::GamePadAxis {
-    match game_pad_axis {
-        GamepadAxis::AxisLeftX => LeftX,
-        GamepadAxis::AxisLeftY => LeftY,
-        GamepadAxis::AxisRightX => RightX,
-        GamepadAxis::AxisRightY => RightY,
-        GamepadAxis::AxisLeftTrigger => LeftTrigger,
-        GamepadAxis::AxisRightTrigger => RightTrigger,
     }
 }
 
