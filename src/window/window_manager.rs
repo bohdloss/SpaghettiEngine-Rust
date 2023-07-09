@@ -12,10 +12,7 @@ use crate::window::packets::WindowPacket::*;
 use crate::window::packets::{GlfwPacket, WindowPacket};
 use crate::window::window_manager::WindowError::*;
 use glfw::Action::*;
-use glfw::{
-    ffi, Cursor, GamepadAxis, GamepadButton, Glfw, JoystickEvent, Monitor, Window, WindowEvent,
-    WindowMode,
-};
+use glfw::{ffi, Cursor, GamepadAxis, GamepadButton, Glfw, JoystickEvent, Monitor, Window, WindowEvent, WindowMode, Context};
 use once_cell::sync::Lazy;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
@@ -154,10 +151,12 @@ fn handle_input_update(glfw: &mut Glfw, entry: &mut WindowEntry, dispatcher: &In
                 _ => {}
             },
             WindowEvent::CursorPos(x, y) => {
-                mouse_state.axis[MouseAxis::Position.index()] = (x, y);
+                mouse_state.position = (x, y);
             }
             WindowEvent::Scroll(x, y) => {
-                mouse_state.axis[MouseAxis::Wheel.index()] = (x, y);
+                let mut scroll = mouse_state.scroll.lock().unwrap();
+                scroll.0 += x;
+                scroll.1 += y;
             }
             _ => {}
         }
@@ -179,7 +178,7 @@ fn handle_game_pad_input(glfw: &mut Glfw, dispatcher: &InputDispatcher, index: u
     }
     let game_pad = game_pad.unwrap();
 
-    for button in 0..ffi::GAMEPAD_BUTTON_LAST {
+    for button in 0..=ffi::GAMEPAD_BUTTON_LAST {
         if let Some(button) = GamepadButton::from_i32(button as i32) {
             match game_pad.get_button_state(button) {
                 Press => game_pad_state.buttons[from_game_pad_button(button).index()] = true,

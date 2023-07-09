@@ -26,14 +26,16 @@ impl KeyboardState {
 
 pub struct MouseState {
     pub buttons: [bool; MouseButton::size()],
-    pub axis: [(f64, f64); MouseAxis::size()],
+    pub position: (f64, f64),
+    pub scroll: Mutex<(f64, f64)>
 }
 
 impl MouseState {
     fn new() -> Self {
         Self {
             buttons: [false; MouseButton::size()],
-            axis: [(0.0, 0.0); MouseAxis::size()],
+            position: (0.0, 0.0),
+            scroll: Mutex::new((0.0, 0.0))
         }
     }
 }
@@ -84,6 +86,8 @@ impl InputDispatcher {
     }
 
     pub fn update(&self) {
+        // TODO use activation threshold for scroll and axis events
+
         // Key update
         for (i, &new_val) in self.keyboard_state().keys.iter().enumerate() {
             let new_val = new_val;
@@ -113,35 +117,37 @@ impl InputDispatcher {
         }
 
         // Mouse position / wheel update
-        let new_state = &mut self.mouse_state().axis;
-        let old_state = &mut self.old_mouse_state().axis;
+        let new_state = self.mouse_state();
+        let old_state = self.old_mouse_state();
 
-        let position_index = MouseAxis::Position.index();
-        let wheel_index = MouseAxis::Wheel.index();
+        let new_position = new_state.position;
+        let old_position = old_state.position;
 
-        if new_state[position_index] != old_state[position_index] {
-            old_state[position_index] = new_state[position_index];
+        if new_position != old_position {
+            old_state.position = new_position;
 
             self.with_all_listeners(|listener| {
-                listener.mouse_axis_changed(
-                    MouseAxis::Position,
-                    new_state[position_index].0,
-                    new_state[position_index].1,
+                listener.mouse_position_changed(
+                    new_position.0,
+                    new_position.1,
                 )
             });
         }
 
-        // TODO Better scroll handling
+        // Lock the scroll value, save its value and reset it
+        let mut new_scroll = new_state.scroll.lock().unwrap();
+        let new_scroll_val = *new_scroll;
+        *new_scroll = (0.0, 0.0);
 
-        let new_scroll_val = new_state[wheel_index];
-        if new_scroll_val != old_state[wheel_index] {
-            old_state[wheel_index] = new_scroll_val;
+        // Release the lock immediately
+        drop(new_scroll);
 
+        // Test if it changed
+        if new_scroll_val != (0.0, 0.0) {
             self.with_all_listeners(|listener| {
-                listener.mouse_axis_changed(MouseAxis::Wheel, new_scroll_val.0, new_scroll_val.1)
+                listener.mouse_scrolled(new_scroll_val.0, new_scroll_val.1)
             });
         }
-        new_state[wheel_index] = (0.0, 0.0);
 
         // Must iterate over all game pads and...
         for game_pad_index in 0..NUM_GAME_PADS {

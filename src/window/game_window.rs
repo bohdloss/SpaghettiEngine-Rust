@@ -8,10 +8,10 @@ use crate::utils::types::Vector2i;
 use crate::window::packets::{GlfwPacket, WindowPacket};
 use crate::window::window_manager::*;
 use crate::window::{cursor_mode, window_manager, VsyncMode, WindowMonitor};
-use glfw::{Context, RenderContext, SwapInterval, WindowHint};
+use glfw::{Context, ffi, RenderContext, SwapInterval, WindowHint};
 use image::RgbaImage;
 use std::path::Path;
-use std::sync;
+use std::{ptr, sync};
 use std::sync::Arc;
 
 macro_rules! glfw_request {
@@ -570,6 +570,13 @@ impl GameWindow {
     /// Makes the context of the window current for the calling thread
     pub fn make_context_current(&mut self) {
         self.render_context.make_current();
+    }
+
+    /// Sets the context of the calling thread to null
+    pub fn no_context_current(&mut self) {
+        unsafe {
+            ffi::glfwMakeContextCurrent(ptr::null_mut());
+        }
     }
 
     /// # Returns

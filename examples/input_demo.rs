@@ -4,8 +4,11 @@ use spaghetti_engine::input::{
 };
 use spaghetti_engine::settings::GameSettings;
 use spaghetti_engine::spaghetti_entry_point;
-use spaghetti_engine::window::GameWindow;
+use spaghetti_engine::window::{GameWindow, VsyncMode};
 use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
+use glfw::{Context, fail_on_errors, WindowMode};
 
 fn main() {
     spaghetti_entry_point!(input_demo());
@@ -30,8 +33,12 @@ impl InputListener for TestListener {
         );
     }
 
-    fn mouse_axis_changed(&mut self, axis: MouseAxis, x: f64, y: f64) {
-        println!("Mouse axis {} changed to: (x: {}, y: {})", axis, x, y);
+    fn mouse_position_changed(&mut self, x: f64, y: f64) {
+        // println!("Mouse position changed to: (x: {}, y: {})", x, y);
+    }
+
+    fn mouse_scrolled(&mut self, x: f64, y: f64) {
+        println!("Mouse scrolled: (x: {}, y: {})", x, y);
     }
 
     fn game_pad_button_changed(&mut self, game_pad: usize, button: GamePadButton, pressed: bool) {
@@ -63,7 +70,9 @@ fn input_demo() {
     window.register_input_device(Arc::downgrade(&dispatcher));
 
     while !window.should_close() {
+        thread::sleep(Duration::from_millis(1));
         dispatcher.update();
         window.swap();
     }
+    window.no_context_current();
 }
