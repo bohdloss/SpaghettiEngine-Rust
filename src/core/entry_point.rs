@@ -111,16 +111,8 @@ where
         thread_body();
     });
 
-    let mut i: usize = 0;
-    let mut last = SystemTime::now();
     while !thread.is_finished() {
         do_loop_body();
-        i += 1;
-        if SystemTime::now().duration_since(last).unwrap().as_millis() > 1000 {
-            // println!("{} UPS", i);
-            i = 0;
-            last = SystemTime::now();
-        }
     }
     shutdown();
     thread.join().unwrap();
